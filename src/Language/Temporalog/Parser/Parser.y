@@ -80,7 +80,7 @@ DECLARATION :: { Declaration }
   { Declaration (span ($1,$6))
                 (_str . L._token $ $2)
                 (_int . L._token $ $3)
-                (Just $ _str . L._token $ $2) }
+                (Just $ _str . L._token $ $5) }
 
 CLAUSE :: { Sentence }
 : ATOMIC_FORMULA ":-" SUBGOAL "." { let s = span ($1,$2) in G.SClause s $ G.Clause s $1 $3 }
