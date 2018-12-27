@@ -156,7 +156,12 @@ pushStartCode startCode =
   modifyUserState (\s -> s {startCodeStack = startCode : startCodeStack s})
 
 topStartCode :: Alex Int
-topStartCode = head . startCodeStack <$> getUserState
+topStartCode = do
+  stack <- startCodeStack <$> getUserState
+  case stack of
+    (x:_) -> return x
+    _     -> Alex . const $
+      Left "Impossible: The lexer start code stack is empty."
 
 popStartCode :: Alex Int
 popStartCode = do
