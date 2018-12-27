@@ -56,10 +56,11 @@ token :-
 <scB> "U"        { basic TU }
 <scB,scD> "@"    { basic TAt }
 
-<0>         ":-"     { basic TRule  `andEnterStartCode` scB }
-<0>         "?-"     { basic TQuery `andEnterStartCode` scB }
-<0>         ".decl"  { basic TDecl  `andEnterStartCode` scD }
-<0,scB,scD> "."      { exitStartCodeAnd $ basic TDot }
+<0>       ":-"     { basic TRule  `andEnterStartCode` scB }
+<0>       "?-"     { basic TQuery `andEnterStartCode` scB }
+<0>       ".decl"  { basic TDecl  `andEnterStartCode` scD }
+<0>       "."      { basic TDot }
+<scB,scD> "."      { exitStartCodeAnd $ basic TDot }
 
 <0,scB>   @fxSym { useInput TFxSym `andEnterStartCode` scA }
 <scD>     @fxSym { useInput TFxSym }
