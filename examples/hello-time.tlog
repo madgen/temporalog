@@ -1,1 +1,7 @@
+.decl t 2.
+t(1,2).
+
+.decl p 2 @ t.
+.decl q 1.
+.decl r 2 @ t.
 p(X) :- q(24), AG p(42), E[ p(X) U q(Y); r(Z) ].
