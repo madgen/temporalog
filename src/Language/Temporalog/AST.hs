@@ -6,6 +6,8 @@
 
 module Language.Temporalog.AST
   ( Program(..)
+  , Statement(..)
+  , Declaration(..)
   , Sentence(..)
   , Query(..)
   , Clause(..)
@@ -26,18 +28,25 @@ module Language.Temporalog.AST
   , AG.operation
   ) where
 
-import Protolude
+import Protolude hiding ((<>), empty)
 
 import qualified Data.List.NonEmpty as NE
 
 import qualified Language.Exalog.Core as E
 
+import Text.PrettyPrint ((<+>), (<>), int, empty)
+
 import qualified Language.Vanillalog.Generic.AST as AG
 import           Language.Vanillalog.Generic.Compiler (ClosureCompilable(..), Closure(..))
 import qualified Language.Vanillalog.Generic.Logger as L
-import           Language.Vanillalog.Generic.Pretty (Pretty(..), HasPrecedence(..))
+import           Language.Vanillalog.Generic.Parser.SrcLoc
+import           Language.Vanillalog.Generic.Pretty ( Pretty(..)
+                                                    , HasPrecedence(..)
+                                                    )
 
-type Program = AG.Program Op
+type Program = AG.Program Declaration Op
+
+type Statement = AG.Statement Declaration Op
 
 type Sentence = AG.Sentence Op
 
@@ -46,6 +55,13 @@ type Query = AG.Query Op
 type Clause = AG.Clause Op
 
 type Subgoal = AG.Subgoal Op
+
+data Declaration = Declaration
+  { _span :: SrcSpan
+  , _predSym :: Text
+  , _arity :: Int
+  , _timePredSym :: Maybe Text
+  }
 
 data Op (k :: AG.OpKind) where
   Negation    :: Op 'AG.Unary
@@ -124,3 +140,7 @@ instance Pretty (Op opKind) where
   pretty AF          = "AF "
   pretty AG          = "AG "
   pretty AU          = " AU "
+
+instance Pretty Declaration where
+  pretty (Declaration _ pred arity mTime) =
+    "decl" <+> pretty pred <+> int arity <+> maybe empty pretty mTime <> "."

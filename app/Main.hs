@@ -22,12 +22,14 @@ import Language.Vanillalog.Generic.CLI.Util
 
 import Language.Temporalog.AST (Program)
 import Language.Temporalog.Transformation.TemporalEliminator (eliminateTemporal)
+import Language.Temporalog.Transformation.Declaration (removeDecls)
 import Language.Temporalog.Parser.Lexer (lex)
 import Language.Temporalog.Parser.Parser (programParser)
 
 data Stage =
     TemporalLex
   | TemporalParse
+  | TemporalNoDecl
   | TemporalNoTime
   | VanillaNormal
   | Exalog
@@ -36,6 +38,7 @@ stageParser :: Parser Stage
 stageParser =
      stageFlag' TemporalLex    "lex"    "Tokenize"
  <|> stageFlag' TemporalParse  "parse"  "Parse"
+ <|> stageFlag' TemporalNoDecl "nodecl" "Normalise using declarations"
  <|> stageFlag' TemporalNoTime "notime" "Eliminate temporal ops"
  <|> stageFlag' VanillaNormal  "normal" "Normalise"
  <|> stageFlag' Exalog         "exalog" "Compile to Exalog"
@@ -43,7 +46,8 @@ stageParser =
 run :: RunOptions -> IO ()
 run RunOptions{..} = do
   bs <- BS.fromStrict . encodeUtf8 <$> readFile file
-  succeedOrDie (programParser file >=> nameQueries
+  succeedOrDie (programParser file >=> removeDecls
+                                   >=> nameQueries
                                    >=> eliminateTemporal
                                    >=> normalise
                                    >=> compile) bs $
@@ -60,17 +64,22 @@ prettyPrint PPOptions{..} = do
   case stage of
     TemporalLex -> succeedOrDie (lex file) bs print
     TemporalParse -> succeedOrDie (programParser file) bs $ putStrLn . pp
+    TemporalNoDecl ->
+      succeedOrDie (programParser file >=> removeDecls) bs $ putStrLn . pp
     TemporalNoTime ->
-      succeedOrDie (programParser file >=> nameQueries
+      succeedOrDie (programParser file >=> removeDecls
+                                       >=> nameQueries
                                        >=> eliminateTemporal) bs $
         putStrLn . pp
     VanillaNormal ->
-      succeedOrDie (programParser file >=> nameQueries
+      succeedOrDie (programParser file >=> removeDecls
+                                       >=> nameQueries
                                        >=> eliminateTemporal
                                        >=> normalise) bs $
         putStrLn . pp
     Exalog ->
-      succeedOrDie (programParser file >=> nameQueries
+      succeedOrDie (programParser file >=> removeDecls
+                                       >=> nameQueries
                                        >=> eliminateTemporal
                                        >=> normalise
                                        >=> compile) bs $

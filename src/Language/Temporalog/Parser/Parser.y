@@ -35,6 +35,8 @@ import Language.Temporalog.Parser.Lexer (Token(..), lex)
   disj     { L.Lexeme{L._token = TDisj} }
   neg      { L.Lexeme{L._token = TNeg} }
 
+  decl     { L.Lexeme{L._token = TDecl} }
+
   ex       { L.Lexeme{L._token = TEX} }
   ef       { L.Lexeme{L._token = TEF} }
   eg       { L.Lexeme{L._token = TEG} }
@@ -44,6 +46,7 @@ import Language.Temporalog.Parser.Lexer (Token(..), lex)
   ag       { L.Lexeme{L._token = TAG} }
   a        { L.Lexeme{L._token = TA} }
   u        { L.Lexeme{L._token = TU} }
+  "@"      { L.Lexeme{L._token = TAt} }
 
   fxSym    { L.Lexeme{L._token = TFxSym{}} }
   var      { L.Lexeme{L._token = TVariable{}} }
@@ -62,9 +65,22 @@ import Language.Temporalog.Parser.Lexer (Token(..), lex)
 PROGRAM :: { Program }
 : CLAUSES eof { G.Program (span $1) . reverse $ $1 }
 
-CLAUSES :: { [ Sentence ] }
-: CLAUSES CLAUSE { $2 : $1 }
-|                { [] }
+CLAUSES :: { [ Statement ] }
+: CLAUSES DECLARATION { G.StDeclaration (span $2) $2 : $1 }
+| CLAUSES CLAUSE      { G.StSentence    (span $2) $2 : $1 }
+|                     { [] }
+
+DECLARATION :: { Declaration }
+: decl fxSym int "."
+  { Declaration (span ($1,$4))
+                (_str . L._token $ $2)
+                (_int . L._token $ $3)
+                Nothing }
+| decl fxSym int "@" fxSym "."
+  { Declaration (span ($1,$6))
+                (_str . L._token $ $2)
+                (_int . L._token $ $3)
+                (Just $ _str . L._token $ $2) }
 
 CLAUSE :: { Sentence }
 : ATOMIC_FORMULA ":-" SUBGOAL "." { let s = span ($1,$2) in G.SClause s $ G.Clause s $1 $3 }

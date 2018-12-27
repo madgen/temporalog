@@ -23,6 +23,11 @@ import qualified Language.Vanillalog.Generic.Logger as Log
 
 @int = [1-9][0-9]+
 
+-- Start codes
+-- scB = Body
+-- scD = Declaration
+-- scA = Atom
+-- str = String
 token :-
 
 <0,scB,scA> $white+  ;
@@ -49,18 +54,20 @@ token :-
 <scB> "AG"       { basic TAG }
 <scB> "A"        { basic TA }
 <scB> "U"        { basic TU }
+<scB,scD> "@"    { basic TAt }
 
 <0>     ":-"     { basic TRule  `andBegin` scB }
 <0>     "?-"     { basic TQuery `andBegin` scB }
+<0>     "decl"   { basic TDecl  `andBegin` scD }
 <0,scB> "."      { basic TDot   `andBegin` 0 }
 
-<0,scB> @fxSym   { useInput TFxSym `andEnterStartCode` scA }
-<scA>   "("      { basic TLeftPar }
-<scA>   ")"      { exitStartCodeAnd $ basic TRightPar }
-<scA>   true     { basic (TBool True) }
-<scA>   false    { basic (TBool False) }
-<scA>   @var     { useInput TVariable }
-<scA>   @int     { useInput (TInt . read . BS.unpack) }
+<0,scB,scD> @fxSym { useInput TFxSym `andEnterStartCode` scA }
+<scA>     "("      { basic TLeftPar }
+<scA>     ")"      { exitStartCodeAnd $ basic TRightPar }
+<scA>     true     { basic (TBool True) }
+<scA>     false    { basic (TBool False) }
+<scA>     @var     { useInput TVariable }
+<scA,scD> @int     { useInput (TInt . read . BS.unpack) }
 
 <scA> \"         { enterStartCode str }
 <str> [^\"]+     { useInput TStr }
@@ -76,6 +83,7 @@ data Token str =
   | TComma
   | TRule
   | TQuery
+  | TDecl
   | TConj
   | TDisj
   | TNeg
@@ -88,6 +96,7 @@ data Token str =
   | TAG
   | TA
   | TU
+  | TAt
   | TFxSym    { _str  :: str }
   | TVariable { _str  :: str }
   | TStr      { _str  :: str }
