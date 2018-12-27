@@ -30,8 +30,8 @@ import qualified Language.Vanillalog.Generic.Logger as Log
 -- str = String
 token :-
 
-<0,scB,scA> $white+  ;
-<0>         "%".*    ;
+<0,scB,scA,scD> $white+  ;
+<0>             "%".*    ;
 
 <0,scB> "("  { basic TLeftPar }
 <0,scB> ")"  { basic TRightPar }
@@ -56,18 +56,19 @@ token :-
 <scB> "U"        { basic TU }
 <scB,scD> "@"    { basic TAt }
 
-<0>     ":-"     { basic TRule  `andBegin` scB }
-<0>     "?-"     { basic TQuery `andBegin` scB }
-<0>     "decl"   { basic TDecl  `andBegin` scD }
-<0,scB> "."      { basic TDot   `andBegin` 0 }
+<0>         ":-"     { basic TRule  `andEnterStartCode` scB }
+<0>         "?-"     { basic TQuery `andEnterStartCode` scB }
+<0>         ".decl"  { basic TDecl  `andEnterStartCode` scD }
+<0,scB,scD> "."      { exitStartCodeAnd $ basic TDot }
 
-<0,scB,scD> @fxSym { useInput TFxSym `andEnterStartCode` scA }
-<scA>     "("      { basic TLeftPar }
-<scA>     ")"      { exitStartCodeAnd $ basic TRightPar }
-<scA>     true     { basic (TBool True) }
-<scA>     false    { basic (TBool False) }
-<scA>     @var     { useInput TVariable }
-<scA,scD> @int     { useInput (TInt . read . BS.unpack) }
+<0,scB>   @fxSym { useInput TFxSym `andEnterStartCode` scA }
+<scD>     @fxSym { useInput TFxSym }
+<scA>     "("    { basic TLeftPar }
+<scA>     ")"    { exitStartCodeAnd $ basic TRightPar }
+<scA>     true   { basic (TBool True) }
+<scA>     false  { basic (TBool False) }
+<scA>     @var   { useInput TVariable }
+<scA,scD> @int   { useInput (TInt . read . BS.unpack) }
 
 <scA> \"         { enterStartCode str }
 <str> [^\"]+     { useInput TStr }
