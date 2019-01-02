@@ -84,7 +84,13 @@ DECLARATION :: { Declaration }
 
 CLAUSE :: { Sentence }
 : ATOMIC_FORMULA ":-" SUBGOAL "." { let s = span ($1,$2) in G.SClause s $ G.Clause s $1 $3 }
-| ATOMIC_FACT "."                 { let s = span ($1,$2) in G.SFact   s $ G.Fact   s $1 }
+| ATOMIC_FORMULA "."              {% do
+                                    let s = span ($1,$2)
+                                    symAtom <- (`traverse` $1) $ \case
+                                      TVar (Var vs _) -> Log.scold (Just vs)
+                                        "Facts cannot have variables."
+                                      TSym s -> pure s
+                                    pure $ G.SFact s $ G.Fact s symAtom }
 | "?-" SUBGOAL "."                { let s = span ($1,$3) in G.SQuery  s $ G.Query  s Nothing $2 }
 
 SUBGOAL :: { Subgoal }
@@ -106,10 +112,6 @@ ATOMIC_FORMULA :: { AtomicFormula Term }
 : fxSym "(" TERMS ")" { AtomicFormula (span $1) (_str . L._token $ $1) (reverse $3) }
 | fxSym               { AtomicFormula (span $1) (_str . L._token $ $1) [] }
 
-ATOMIC_FACT :: { AtomicFormula Sym }
-: fxSym "(" SYMS ")" { AtomicFormula (span ($1,$4)) (_str . L._token $ $1) (reverse $3) }
-| fxSym              { AtomicFormula (span $1)      (_str . L._token $ $1) [] }
-
 TERMS :: { [ Term ] }
 : TERMS "," TERM { $3 : $1 }
 | TERM           { [ $1 ] }
@@ -117,10 +119,6 @@ TERMS :: { [ Term ] }
 TERM :: { Term }
 : VAR  { TVar $1 }
 | SYM  { TSym $1 }
-
-SYMS :: { [ Sym ] }
-: SYMS "," SYM { $3 : $1 }
-| SYM          { [ $1 ] }
 
 SYM :: { Sym }
 : str  { SymText (span $1) . _str  . L._token $ $1 }
