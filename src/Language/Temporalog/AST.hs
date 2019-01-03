@@ -22,6 +22,8 @@ module Language.Temporalog.AST
   , Op(..), AG.OpKind(..), AG.SomeOp(..)
   , AG.AtomicFormula(..)
   , AG.Term(..)
+  , AG.TermType(..)
+  , AG.termType
   , AG.Var(..)
   , AG.Sym(..)
   , AG.vars

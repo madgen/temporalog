@@ -73,14 +73,14 @@ CLAUSES :: { [ Statement ] }
 DECLARATION :: { Declaration }
 : decl fxSym int "."
   { Declaration (span ($1,$4))
-                (_str . L._token $ $2)
-                (_int . L._token $ $3)
+                (_tStr . L._token $ $2)
+                (_tInt . L._token $ $3)
                 Nothing }
 | decl fxSym int "@" fxSym "."
   { Declaration (span ($1,$6))
-                (_str . L._token $ $2)
-                (_int . L._token $ $3)
-                (Just $ _str . L._token $ $5) }
+                (_tStr . L._token $ $2)
+                (_tInt . L._token $ $3)
+                (Just $ _tStr . L._token $ $5) }
 
 CLAUSE :: { Sentence }
 : ATOMIC_FORMULA ":-" SUBGOAL "." { let s = span ($1,$2) in G.SClause s $ G.Clause s $1 $3 }
@@ -109,8 +109,8 @@ SUBGOAL :: { Subgoal }
 | a "[" SUBGOAL u SUBGOAL "]" { SAU (span ($1,$6)) $3 $5 }
 
 ATOMIC_FORMULA :: { AtomicFormula Term }
-: fxSym "(" TERMS ")" { AtomicFormula (span $1) (_str . L._token $ $1) (reverse $3) }
-| fxSym               { AtomicFormula (span $1) (_str . L._token $ $1) [] }
+: fxSym "(" TERMS ")" { AtomicFormula (span $1) (_tStr . L._token $ $1) (reverse $3) }
+| fxSym               { AtomicFormula (span $1) (_tStr . L._token $ $1) [] }
 
 TERMS :: { [ Term ] }
 : TERMS "," TERM { $3 : $1 }
@@ -121,12 +121,12 @@ TERM :: { Term }
 | SYM  { TSym $1 }
 
 SYM :: { Sym }
-: str  { SymText (span $1) . _str  . L._token $ $1 }
-| int  { SymInt  (span $1) . _int  . L._token $ $1 }
-| bool { SymBool (span $1) . _bool . L._token $ $1 }
+: str  { SymText (span $1) . _tStr  . L._token $ $1 }
+| int  { SymInt  (span $1) . _tInt  . L._token $ $1 }
+| bool { SymBool (span $1) . _tBool . L._token $ $1 }
 
 VAR :: { Var }
-: var { Var (span $1) . _str . L._token $ $1 }
+: var { Var (span $1) . _tStr . L._token $ $1 }
 
 {
 parseError :: [ L.Lexeme (Token Text) ] -> Log.LoggerM a
