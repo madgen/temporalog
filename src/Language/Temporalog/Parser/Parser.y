@@ -130,7 +130,7 @@ VAR :: { Var }
 
 {
 parseError :: [ L.Lexeme (Token Text) ] -> Log.LoggerM a
-parseError tokens = Log.scold (Just . span . head $ tokens) ("Parse error.")
+parseError tokens = Log.scold (Just . span . head $ tokens) "Parse error."
 
 programParser    file = lex file >=> programParser1
 clauseFactParser file = lex file >=> clauseFactParser1
