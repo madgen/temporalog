@@ -60,8 +60,7 @@ type Subgoal = AG.Subgoal Op
 
 data Declaration = Declaration
   { _span :: SrcSpan
-  , _predSym :: Text
-  , _arity :: Int
+  , _atomType :: AG.AtomicFormula AG.TermType
   , _timePredSym :: Maybe Text
   }
 
@@ -144,5 +143,5 @@ instance Pretty (Op opKind) where
   pretty AU          = " AU "
 
 instance Pretty Declaration where
-  pretty (Declaration _ pred arity mTime) =
-    "decl" <+> pretty pred <+> int arity <+> maybe empty pretty mTime <> "."
+  pretty (Declaration _ atom mTime) =
+    "decl" <+> pretty atom <+> maybe empty pretty mTime <> "."

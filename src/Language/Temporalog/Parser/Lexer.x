@@ -24,18 +24,19 @@ import qualified Language.Vanillalog.Generic.Logger as Log
 @int = [1-9][0-9]*
 
 -- Start codes
--- scB = Body
--- scD = Declaration
--- scA = Atom
--- str = String
+-- scB  = Body
+-- scD  = Declaration
+-- scA  = Atom
+-- scDA = Declaration atom
+-- str  = String
 token :-
 
 <0,scB,scA,scD> $white+  ;
 <0>             "%".*    ;
 
-<0,scB> "("  { basic TLeftPar }
-<0,scB> ")"  { basic TRightPar }
-<scA>   ","  { basic TComma }
+<0,scB>    "("  { basic TLeftPar }
+<0,scB>    ")"  { basic TRightPar }
+<scA,scDA> ","  { basic TComma }
 
 <scB> ","        { basic TConj }
 <scB> ";"        { basic TDisj }
@@ -61,15 +62,20 @@ token :-
 <0>       ".decl"  { basic TDecl  `andEnterStartCode` scD }
 <0>       "."      { basic TDot }
 <scB,scD> "."      { exitStartCodeAnd $ basic TDot }
+<scDA>    "."      { exitStartCodeAnd $ exitStartCodeAnd $ basic TDot }
 
-<0,scB>   @fxSym { useInput TFxSym `andEnterStartCode` scA }
-<scD>     @fxSym { useInput TFxSym }
-<scA>     "("    { basic TLeftPar }
-<scA>     ")"    { exitStartCodeAnd $ basic TRightPar }
-<scA>     true   { basic (TBool True) }
-<scA>     false  { basic (TBool False) }
-<scA>     @var   { useInput TVariable }
-<scA,scD> @int   { useInput (TInt . read . BS.unpack) }
+<0,scB>    @fxSym { useInput TFxSym `andEnterStartCode` scA }
+<scA,scDA> "("    { basic TLeftPar }
+<scA,scDA> ")"    { exitStartCodeAnd $ basic TRightPar }
+<scA>      true   { basic (TBool True) }
+<scA>      false  { basic (TBool False) }
+<scA>      @var   { useInput TVariable }
+<scA>      @int   { useInput (TInt . read . BS.unpack) }
+
+<scD>      @fxSym { useInput TFxSym `andEnterStartCode` scDA }
+<scDA>     "int"  { basic TTTInt }
+<scDA>     "bool" { basic TTTBool }
+<scDA>     "text" { basic TTTText }
 
 <scA> \"         { enterStartCode str }
 <str> [^\"]+     { useInput TStr }
@@ -86,6 +92,9 @@ data Token str =
   | TRule
   | TQuery
   | TDecl
+  | TTTInt
+  | TTTBool
+  | TTTText
   | TConj
   | TDisj
   | TNeg
