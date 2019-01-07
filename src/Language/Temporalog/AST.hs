@@ -38,6 +38,8 @@ import qualified Language.Exalog.Core as E
 
 import Text.PrettyPrint ((<+>), (<>), int, empty)
 
+import           Language.Exalog.Pretty.Helper ((<+?>))
+
 import qualified Language.Vanillalog.Generic.AST as AG
 import           Language.Vanillalog.Generic.Compiler (ClosureCompilable(..), Closure(..))
 import qualified Language.Vanillalog.Generic.Logger as L
@@ -144,4 +146,4 @@ instance Pretty (Op opKind) where
 
 instance Pretty Declaration where
   pretty (Declaration _ atom mTime) =
-    "decl" <+> pretty atom <+> maybe empty pretty mTime <> "."
+    "decl" <+> pretty atom <+> "@" <+?> maybe empty pretty mTime <> "."
