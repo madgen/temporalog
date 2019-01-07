@@ -21,7 +21,7 @@ import qualified Language.Vanillalog.Generic.Logger as Log
 @var      = [A-Z]@idChar*
 @fxSym    = [a-z]@idChar*
 
-@int = [1-9][0-9]*
+@int = 0|[1-9][0-9]*
 
 -- Start codes
 -- scB  = Body
