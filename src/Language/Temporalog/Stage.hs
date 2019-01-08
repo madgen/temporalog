@@ -3,6 +3,7 @@
 module Language.Temporalog.Stage
   ( lex
   , parse
+  , metadata
   , noDeclaration
   , namedQueries
   , noTemporal

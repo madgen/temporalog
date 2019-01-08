@@ -1,4 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 
 module Language.Temporalog.Metadata
   ( Metadata
@@ -12,9 +14,15 @@ import Protolude
 import           Data.List ((\\), nub, partition)
 import qualified Data.Map.Strict as M
 
+import qualified Text.PrettyPrint as PP
+
+import           Language.Exalog.Pretty.Helper
+
+
+import           Language.Vanillalog.Generic.Pretty
 import qualified Language.Vanillalog.Generic.AST as AG
 import qualified Language.Vanillalog.Generic.Logger as Log
-import           Language.Vanillalog.Generic.Parser.SrcLoc (span)
+import           Language.Vanillalog.Generic.Parser.SrcLoc (span, dummySpan)
 
 import Language.Temporalog.AST
 
@@ -141,3 +149,17 @@ declarationExistenceCheck sentences decls = forM_ sentences $ \case
       Log.scold (Just span) $ "Predicate " <> pred <> " lacks a declaration."
 
   predsBeingDeclared = map (_fxSym . _atomType) decls
+
+instance Pretty Metadata where
+  pretty = PP.vcat . prettyC . M.toList
+
+instance Pretty (Text, PredicateInfo) where
+  pretty (predSym, PredicateInfo{..}) =
+    pretty AtomicFormula{ _span = dummySpan
+                        , _fxSym = predSym
+                        , _terms = _originalType } PP.<+>
+    case _timing of
+      Just Timing{..} ->
+        "@" PP.<+> pretty _predSym PP.<+> "with" PP.<+> pretty _type
+      Nothing -> PP.empty
+
