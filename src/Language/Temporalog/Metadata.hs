@@ -4,9 +4,11 @@
 
 module Language.Temporalog.Metadata
   ( Metadata
+  , PredicateInfo
   , processMetadata
   , lookup
   , typ
+  , arity
   ) where
 
 import Protolude
@@ -38,6 +40,9 @@ data PredicateInfo = PredicateInfo
 
 typ :: PredicateInfo -> [ TermType ]
 typ = _originalType
+
+arity :: PredicateInfo -> Int
+arity = length . typ
 
 type Metadata = M.Map Text PredicateInfo
 
