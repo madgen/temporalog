@@ -25,6 +25,7 @@ data Stage =
     TemporalLex
   | TemporalParse
   | TemporalMeta
+  | TemporalType
   | TemporalNoDecl
   | TemporalNoTime
   | VanillaNormal
@@ -32,13 +33,14 @@ data Stage =
 
 stageParser :: Parser Stage
 stageParser =
-     stageFlag' TemporalLex    "lex"      "Tokenize"
- <|> stageFlag' TemporalParse  "parse"    "Parse"
- <|> stageFlag' TemporalMeta   "metadata" "Dump metadata"
- <|> stageFlag' TemporalNoDecl "nodecl"   "Normalise using declarations"
- <|> stageFlag' TemporalNoTime "notime"   "Eliminate temporal ops"
- <|> stageFlag' VanillaNormal  "normal"   "Normalise"
- <|> stageFlag' Exalog         "exalog"   "Compiled Exalog program"
+     stageFlag' TemporalLex    "lex"       "Tokenize"
+ <|> stageFlag' TemporalParse  "parse"     "Parse"
+ <|> stageFlag' TemporalMeta   "metadata"  "Dump metadata"
+ <|> stageFlag' TemporalType   "typecheck" "Type check"
+ <|> stageFlag' TemporalNoDecl "nodecl"    "Normalise using declarations"
+ <|> stageFlag' TemporalNoTime "notime"    "Eliminate temporal ops"
+ <|> stageFlag' VanillaNormal  "normal"    "Normalise"
+ <|> stageFlag' Exalog         "exalog"    "Compiled Exalog program"
 
 run :: RunOptions -> IO ()
 run RunOptions{..} = do
@@ -59,6 +61,7 @@ prettyPrint PPOptions{..} = do
     TemporalParse  -> succeedOrDie (Stage.parse file) bs $ putStrLn . pp
     TemporalMeta   -> succeedOrDie (fmap fst <$> Stage.metadata file) bs $
       putStrLn . pp
+    TemporalType   -> succeedOrDie (Stage.typeChecked file) bs $ void . pure
     TemporalNoDecl -> succeedOrDie (fmap snd <$> Stage.noDeclaration file) bs $
       putStrLn . pp
     TemporalNoTime -> succeedOrDie (Stage.noTemporal file) bs $ putStrLn . pp

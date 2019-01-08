@@ -19,15 +19,15 @@ import qualified Language.Temporalog.Metadata as MD
 type LocalTypeEnvironment  = [ (Var, TermType) ]
 
 typeCheck :: MD.Metadata -> Program -> Log.LoggerM ()
-typeCheck metadata program = void $ transformM (\s -> go s $> s) program
+typeCheck metadata program = void $ transformM (\s -> check (collect s) $> s) program
   where
-  go :: Sentence -> Log.LoggerM ()
-  go (AG.SFact   _ Fact{})        = pure ()
-  go (AG.SQuery  _ AG.Query{..})  = check $ maybe [] (pure . fmap TVar) _head ++ AG.atoms _body
-  go (AG.SClause _ AG.Clause{..}) = check $ _head                              : AG.atoms _body
+  collect :: Sentence -> [ AtomicFormula Term ]
+  collect (AG.SFact   _ Fact{..})      = [ TSym <$> _atom ]
+  collect (AG.SQuery  _ AG.Query{..})  = maybe [] (pure . fmap TVar) _head ++ AG.atoms _body
+  collect (AG.SClause _ AG.Clause{..}) = _head                              : AG.atoms _body
 
   check :: [ AtomicFormula Term ] -> Log.LoggerM ()
-  check = void . foldrM yakk []
+  check = void . foldrM yakk [] . reverse
 
   yakk :: AtomicFormula Term
        -> LocalTypeEnvironment
@@ -60,8 +60,8 @@ add (var, tt) env =
     Just tt'
       | tt == tt' -> pure env
       | otherwise -> Log.scold (Just $ span var) $
-        pp var <> " was given the type " <> pp tt <>
-        " but now is assigned " <> pp tt' <> "."
+        pp var <> " was assigned type " <> pp tt <>
+          " but it is used as " <> pp tt' <> "."
 
 unify :: [ Term ] -> [ TermType ] -> Log.LoggerM LocalTypeEnvironment
 unify terms types = catMaybes <$> traverse go (zip terms types)

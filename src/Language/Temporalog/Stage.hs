@@ -4,6 +4,7 @@ module Language.Temporalog.Stage
   ( lex
   , parse
   , metadata
+  , typeChecked
   , noDeclaration
   , namedQueries
   , noTemporal
@@ -32,6 +33,7 @@ import qualified Language.Temporalog.Parser.Lexer as Lexer
 import qualified Language.Temporalog.Parser.Parser as Parser
 import           Language.Temporalog.Transformation.Declaration (removeDecls)
 import           Language.Temporalog.Transformation.TemporalEliminator (eliminateTemporal)
+import           Language.Temporalog.TypeChecker (typeCheck)
 
 type Stage a = FilePath -> BS.ByteString -> Log.LoggerM a
 
@@ -47,8 +49,14 @@ metadata file bs = do
   meta <- MD.processMetadata ast
   pure (meta, ast)
 
+typeChecked :: Stage (MD.Metadata, Program)
+typeChecked file bs = do
+  res <- metadata file bs
+  uncurry typeCheck res
+  pure res
+
 noDeclaration :: Stage (MD.Metadata, AG.Program Void Op)
-noDeclaration file bs = second removeDecls <$> metadata file bs
+noDeclaration file bs = second removeDecls <$> typeChecked file bs
 
 namedQueries :: Stage (MD.Metadata, AG.Program Void Op)
 namedQueries file bs = do
