@@ -79,13 +79,7 @@ DECLARATION :: { Declaration }
 
 CLAUSE :: { Sentence }
 : ATOMIC_FORMULA ":-" SUBGOAL "." { let s = span ($1,$2) in G.SClause s $ G.Clause s $1 $3 }
-| ATOMIC_FORMULA "."              {% do
-                                    let s = span ($1,$2)
-                                    symAtom <- (`traverse` $1) $ \case
-                                      TVar (Var vs _) -> Log.scold (Just vs)
-                                        "Facts cannot have variables."
-                                      TSym s -> pure s
-                                    pure $ G.SFact s $ G.Fact s symAtom }
+| ATOMIC_FORMULA "."              { let s = span ($1,$2) in G.SFact s $ G.Fact s $1 }
 | "?-" SUBGOAL "."                { let s = span ($1,$3) in G.SQuery  s $ G.Query  s Nothing $2 }
 
 SUBGOAL :: { Subgoal }

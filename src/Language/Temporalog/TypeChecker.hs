@@ -22,7 +22,7 @@ typeCheck :: MD.Metadata -> Program -> Log.LoggerM ()
 typeCheck metadata program = void $ transformM (\s -> check (collect s) $> s) program
   where
   collect :: Sentence -> [ AtomicFormula Term ]
-  collect (AG.SFact   _ Fact{..})      = [ TSym <$> _atom ]
+  collect (AG.SFact   _ Fact{..})      = [ _atom ]
   collect (AG.SQuery  _ AG.Query{..})  = maybe [] (pure . fmap TVar) _head ++ AG.atoms _body
   collect (AG.SClause _ AG.Clause{..}) = _head                              : AG.atoms _body
 
