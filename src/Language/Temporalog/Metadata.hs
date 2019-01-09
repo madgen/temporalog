@@ -1,4 +1,5 @@
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
@@ -19,7 +20,6 @@ import qualified Data.Map.Strict as M
 import qualified Text.PrettyPrint as PP
 
 import           Language.Exalog.Pretty.Helper
-
 
 import           Language.Vanillalog.Generic.Pretty
 import qualified Language.Vanillalog.Generic.AST as AG
@@ -73,7 +73,7 @@ processMetadata program = do
     _timePredSym
 
   let (timingDecls, deductiveDecls) =
-        partition ((`elem` timePreds) . _fxSym . _atomType) aTemporalDecls
+        partition ((`elem` timePreds) . #_predSym . _atomType) aTemporalDecls
 
   let timingMap    = M.fromList  $  map processATemporal                 timingDecls
   let deductiveMap = M.fromList  $  map processATemporal                 deductiveDecls
@@ -81,14 +81,18 @@ processMetadata program = do
 
   pure $ timingMap `M.union` deductiveMap `M.union` temporalMap
   where
+  processATemporal :: Declaration -> (Text, PredicateInfo)
   processATemporal Declaration{..} =
-    ( _fxSym _atomType
+    ( #_predSym _atomType
     , PredicateInfo
       { _originalType = _terms _atomType
       , _timing       = Nothing
       }
     )
 
+  processTemporal :: Metadata
+                  -> Declaration
+                  -> Log.LoggerM (Text, PredicateInfo)
   processTemporal timingMap Declaration{..} = do
     tSym <- maybe (Log.scream Nothing "Processing an atemporal predicate.") pure
       _timePredSym
@@ -101,7 +105,7 @@ processMetadata program = do
       pure
       (head . _originalType $ metadata)
 
-    pure ( _fxSym _atomType
+    pure ( #_predSym _atomType
          , PredicateInfo
            { _originalType = _terms _atomType
            , _timing       = Just $ Timing { _predSym = tSym, _type = typ }
@@ -111,12 +115,12 @@ processMetadata program = do
 -- |Make sure there no repeated declarations for the same predicate.
 uniquenessCheck :: [ Declaration ] -> Log.LoggerM ()
 uniquenessCheck decls = do
-  let predSyms = map (_fxSym . _atomType) decls
+  let predSyms = map (#_predSym . _atomType) decls
   let diff = predSyms \\ nub predSyms
   case head diff of
     Nothing              -> pure ()
     Just repeatedPredSym ->
-      case head . map span . filter ((repeatedPredSym ==) . _fxSym . _atomType) $ decls of
+      case head . map span . filter ((repeatedPredSym ==) . #_predSym . _atomType) $ decls of
         Just s  -> Log.scold (Just s) $
           "The declaration for predicate " <> repeatedPredSym <> " is repeated."
         Nothing -> Log.scream Nothing $
@@ -126,7 +130,7 @@ uniquenessCheck decls = do
 -- defining them.
 sentenceExistenceCheck :: [ Sentence ] -> [ Declaration ] -> Log.LoggerM ()
 sentenceExistenceCheck sentences decls = forM_ decls $ \Declaration{..} -> do
-  let declaredPredSym = _fxSym _atomType
+  let declaredPredSym = #_predSym _atomType
   checkExistence _span declaredPredSym
 
   maybe (pure ()) (checkExistence _span) _timePredSym
@@ -137,23 +141,23 @@ sentenceExistenceCheck sentences decls = forM_ decls $ \Declaration{..} -> do
 
   predsBeingDefined = (`mapMaybe` sentences) $ \case
     AG.SQuery{} -> Nothing
-    AG.SFact{_fact     = AG.Fact{_atom   = AG.AtomicFormula{_fxSym = sym}}} -> Just sym
-    AG.SClause{_clause = AG.Clause{_head = AG.AtomicFormula{_fxSym = sym}}} -> Just sym
+    AG.SFact{_fact     = AG.Fact{_atom   = AG.AtomicFormula{_predSym = sym}}} -> Just sym
+    AG.SClause{_clause = AG.Clause{_head = AG.AtomicFormula{_predSym = sym}}} -> Just sym
 
 -- |Check all predicates defined have corresponding declarations.
 declarationExistenceCheck :: [ Sentence ] -> [ Declaration ] -> Log.LoggerM ()
 declarationExistenceCheck sentences decls = forM_ sentences $ \case
   AG.SQuery{} -> pure ()
-  AG.SFact{AG._fact     = AG.Fact{_atom   = AtomicFormula{_fxSym = predSym}},..} ->
+  AG.SFact{AG._fact     = AG.Fact{_atom   = AtomicFormula{_predSym = predSym}},..} ->
     checkExistence _span predSym
-  AG.SClause{AG._clause = AG.Clause{_head = AtomicFormula{_fxSym = predSym}},..} ->
+  AG.SClause{AG._clause = AG.Clause{_head = AtomicFormula{_predSym = predSym}},..} ->
     checkExistence _span predSym
   where
   checkExistence span pred =
     unless (pred `elem` predsBeingDeclared) $
       Log.scold (Just span) $ "Predicate " <> pred <> " lacks a declaration."
 
-  predsBeingDeclared = map (_fxSym . _atomType) decls
+  predsBeingDeclared = map (#_predSym . _atomType) decls
 
 instance Pretty Metadata where
   pretty = PP.vcat . prettyC . M.toList
@@ -161,10 +165,9 @@ instance Pretty Metadata where
 instance Pretty (Text, PredicateInfo) where
   pretty (predSym, PredicateInfo{..}) =
     pretty AtomicFormula{ _span = dummySpan
-                        , _fxSym = predSym
+                        , _predSym = predSym
                         , _terms = _originalType } PP.<+>
     case _timing of
       Just Timing{..} ->
         "@" PP.<+> pretty _predSym PP.<+> "with" PP.<+> pretty _type
       Nothing -> PP.empty
-

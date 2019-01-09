@@ -32,7 +32,7 @@ typeCheck metadata program = void $ transformM (\s -> check (collect s) $> s) pr
   yakk :: AtomicFormula Term
        -> LocalTypeEnvironment
        -> Log.LoggerM LocalTypeEnvironment
-  yakk atom@AtomicFormula{_fxSym = predSym, _span = s} localEnv =
+  yakk atom@AtomicFormula{_predSym = predSym, _span = s} localEnv =
     case predSym `MD.lookup` metadata of
       Just predInfo -> do
         arityCheck atom predInfo
@@ -48,7 +48,7 @@ arityCheck AtomicFormula{..} predInfo = do
   let expectedArity = MD.arity predInfo
   unless (realArity == expectedArity) $
     Log.scold (Just _span) $
-      "Expected arity of " <> _fxSym <> " is " <> (pack . show) expectedArity <>
+      "Expected arity of " <> _predSym <> " is " <> (pack . show) expectedArity <>
       " but its use has arity " <> (pack . show) realArity <> "."
 
 add :: (Var, TermType)
