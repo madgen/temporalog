@@ -24,6 +24,7 @@ import qualified Language.Vanillalog.Generic.AST as AG
 import           Language.Vanillalog.Generic.Compiler (compile)
 import qualified Language.Vanillalog.Generic.Logger as Log
 import qualified Language.Vanillalog.Generic.Parser.Lexeme as L
+import           Language.Vanillalog.Generic.RangeRestriction (checkRangeRestriction)
 import           Language.Vanillalog.Generic.Transformation.Query (nameQueries)
 import           Language.Vanillalog.Transformation.Normaliser (normalise)
 
@@ -49,9 +50,15 @@ metadata file bs = do
   meta <- MD.processMetadata ast
   pure (meta, ast)
 
+rangeRestricted :: Stage (MD.Metadata, Program)
+rangeRestricted file bs = do
+  res@(meta, ast) <- metadata file bs
+  checkRangeRestriction ast
+  pure res
+
 typeChecked :: Stage (MD.Metadata, Program)
 typeChecked file bs = do
-  res <- metadata file bs
+  res <- rangeRestricted file bs
   uncurry typeCheck res
   pure res
 
