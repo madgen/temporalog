@@ -104,12 +104,12 @@ SUBGOAL :: { Subgoal }
 | a "[" SUBGOAL u SUBGOAL "]" { SAU (span ($1,$6)) $3 $5 }
 
 ATOMIC_FORMULA :: { AtomicFormula Term }
-: fxSym "(" TERMS ")" { AtomicFormula (span $1) (_tStr . L._token $ $1) (reverse $3) }
-| fxSym               { AtomicFormula (span $1) (_tStr . L._token $ $1) [] }
+: fxSym "(" TERMS ")" { AtomicFormula (span ($1,$4)) (_tStr . L._token $ $1) (reverse $3) }
+| fxSym               { AtomicFormula (span $1)      (_tStr . L._token $ $1) [] }
 
 ATOM_TYPE :: { AtomicFormula TermType }
-: fxSym "(" TYPES ")" { AtomicFormula (span $1) (_tStr . L._token $ $1) (reverse $3) }
-| fxSym               { AtomicFormula (span $1) (_tStr . L._token $ $1) [] }
+: fxSym "(" TYPES ")" { AtomicFormula (span ($1,$4)) (_tStr . L._token $ $1) (reverse $3) }
+| fxSym               { AtomicFormula (span $1)      (_tStr . L._token $ $1) [] }
 
 TERMS :: { [ Term ] }
 : TERMS "," TERM { $3 : $1 }
