@@ -140,18 +140,18 @@ sentenceExistenceCheck sentences decls = forM_ decls $ \Declaration{..} -> do
       Log.scold (Just span) $ "Predicate " <> pred <> " lacks a definition."
 
   predsBeingDefined = (`mapMaybe` sentences) $ \case
-    AG.SQuery{} -> Nothing
-    AG.SFact{_fact     = AG.Fact{_atom   = AG.AtomicFormula{_predSym = sym}}} -> Just sym
-    AG.SClause{_clause = AG.Clause{_head = AG.AtomicFormula{_predSym = sym}}} -> Just sym
+    AG.SQuery{}                                                   -> Nothing
+    AG.SFact{_fact     = AG.Fact{_head   = AG.AtomicFormula{..}}} -> Just _predSym
+    AG.SClause{_clause = AG.Clause{_head = AG.AtomicFormula{..}}} -> Just _predSym
 
 -- |Check all predicates defined have corresponding declarations.
 declarationExistenceCheck :: [ Sentence ] -> [ Declaration ] -> Log.LoggerM ()
 declarationExistenceCheck sentences decls = forM_ sentences $ \case
   AG.SQuery{} -> pure ()
-  AG.SFact{AG._fact     = AG.Fact{_atom   = AtomicFormula{_predSym = predSym}},..} ->
-    checkExistence _span predSym
-  AG.SClause{AG._clause = AG.Clause{_head = AtomicFormula{_predSym = predSym}},..} ->
-    checkExistence _span predSym
+  AG.SFact{AG._fact     = AG.Fact{_head   = AtomicFormula{_predSym = s}},..} ->
+    checkExistence _span s
+  AG.SClause{AG._clause = AG.Clause{_head = AtomicFormula{_predSym = s}},..} ->
+    checkExistence _span s
   where
   checkExistence span pred =
     unless (pred `elem` predsBeingDeclared) $
