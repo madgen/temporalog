@@ -58,7 +58,7 @@ type Query = AG.Query Op
 
 type Clause = AG.Clause Op
 
-type Subgoal = AG.Subgoal Op
+type Subgoal term = AG.Subgoal term Op
 
 data Declaration = Declaration
   { _span :: SrcSpan
