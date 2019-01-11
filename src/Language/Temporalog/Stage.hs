@@ -62,21 +62,21 @@ typeChecked file bs = do
   uncurry typeCheck res
   pure res
 
-noDeclaration :: Stage (MD.Metadata, AG.Program Void Op)
+noDeclaration :: Stage (MD.Metadata, AG.Program Void HOp BOp)
 noDeclaration file bs = second removeDecls <$> typeChecked file bs
 
-namedQueries :: Stage (MD.Metadata, AG.Program Void Op)
+namedQueries :: Stage (MD.Metadata, AG.Program Void HOp BOp)
 namedQueries file bs = do
   (meta, ast) <- noDeclaration file bs
   ast' <- nameQueries ast
   pure (meta, ast')
 
-noTemporal :: Stage (AG.Program Void VA.Op)
+noTemporal :: Stage VA.Program
 noTemporal file bs = do
   (meta, ast) <- namedQueries file bs
   eliminateTemporal ast
 
-normalised :: Stage (AG.Program Void VA.Op)
+normalised :: Stage VA.Program
 normalised file = noTemporal file >=> normalise
 
 compiled :: Stage (E.Program 'E.ABase, R.Solution 'E.ABase)

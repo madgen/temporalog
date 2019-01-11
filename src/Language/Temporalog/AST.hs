@@ -19,7 +19,8 @@ module Language.Temporalog.AST
   , pattern SAX, pattern SAF, pattern SAG, pattern SAU
   , pattern SEXF, pattern SEFF, pattern SEGF, pattern SEUF
   , pattern SAXF, pattern SAFF, pattern SAGF, pattern SAUF
-  , Op(..), AG.OpKind(..), AG.SomeOp(..)
+  , pattern SHeadAt, pattern SBodyAt
+  , HOp(..), BOp(..), AG.OpKind(..), AG.SomeOp(..)
   , AG.AtomicFormula(..)
   , AG.Term(..)
   , AG.TermType(..)
@@ -48,17 +49,17 @@ import           Language.Vanillalog.Generic.Pretty ( Pretty(..)
                                                     , HasPrecedence(..)
                                                     )
 
-type Program = AG.Program Declaration Op
+type Program = AG.Program Declaration HOp BOp
 
-type Statement = AG.Statement Declaration Op
+type Statement = AG.Statement Declaration HOp BOp
 
-type Sentence = AG.Sentence Op
+type Sentence = AG.Sentence HOp BOp
 
-type Query = AG.Query Op
+type Query = AG.Query HOp BOp
 
-type Clause = AG.Clause Op
+type Clause = AG.Clause HOp BOp
 
-type Subgoal term = AG.Subgoal term Op
+type Subgoal = AG.Subgoal
 
 data Declaration = Declaration
   { _span :: SrcSpan
@@ -66,23 +67,28 @@ data Declaration = Declaration
   , _timePredSym :: Maybe Text
   }
 
-data Op (k :: AG.OpKind) where
-  Negation    :: Op 'AG.Unary
-  Conjunction :: Op 'AG.Binary
-  Disjunction :: Op 'AG.Binary
+data BOp (k :: AG.OpKind) where
+  Negation    ::            BOp 'AG.Unary
+  Conjunction ::            BOp 'AG.Binary
+  Disjunction ::            BOp 'AG.Binary
 
-  Dogru       :: Op 'AG.Nullary
+  Dogru       ::            BOp 'AG.Nullary
 
-  AX          :: Op 'AG.Unary
-  EX          :: Op 'AG.Unary
-  AG          :: Op 'AG.Unary
-  EG          :: Op 'AG.Unary
-  AF          :: Op 'AG.Unary
-  EF          :: Op 'AG.Unary
-  AU          :: Op 'AG.Binary
-  EU          :: Op 'AG.Binary
+  AX          ::            BOp 'AG.Unary
+  EX          ::            BOp 'AG.Unary
+  AG          ::            BOp 'AG.Unary
+  EG          ::            BOp 'AG.Unary
+  AF          ::            BOp 'AG.Unary
+  EF          ::            BOp 'AG.Unary
+  AU          ::            BOp 'AG.Binary
+  EU          ::            BOp 'AG.Binary
+  BodyAt      :: AG.Term -> BOp 'AG.Unary
 
-deriving instance Eq (Op opKind)
+data HOp (k :: AG.OpKind) where
+  HeadAt      :: AG.Term -> HOp 'AG.Unary
+
+deriving instance Eq (HOp opKind)
+deriving instance Eq (BOp opKind)
 
 pattern SAtom span atom      = AG.SAtom span atom
 pattern SNeg  span sub       = AG.SUnOp span Negation sub
@@ -98,6 +104,9 @@ pattern SEF span child = AG.SUnOp span EF child
 pattern SAU span child1 child2 = AG.SBinOp span AU child1 child2
 pattern SEU span child1 child2 = AG.SBinOp span EU child1 child2
 
+pattern SHeadAt span child time = AG.SUnOp span (HeadAt time) child
+pattern SBodyAt span child time = AG.SUnOp span (BodyAt time) child
+
 pattern SAtomF span atom          = AG.SAtomF span atom
 pattern SNegF  span child         = AG.SUnOpF span Negation child
 pattern SConjF span child1 child2 = AG.SBinOpF span Conjunction child1 child2
@@ -112,11 +121,14 @@ pattern SEFF span child = AG.SUnOpF span EF child
 pattern SAUF span child1 child2 = AG.SBinOpF span AU child1 child2
 pattern SEUF span child1 child2 = AG.SBinOpF span EU child1 child2
 
+pattern SHeadAtF span child time = AG.SUnOpF span (HeadAt time) child
+pattern SBodyAtF span child time = AG.SUnOpF span (BodyAt time) child
+
 -------------------------------------------------------------------------------
 -- Pretty printing related instances
 -------------------------------------------------------------------------------
 
-instance HasPrecedence Op where
+instance HasPrecedence BOp where
   precedence AG.NoOp                 = 0
   precedence (AG.SomeOp Negation)    = 1
   precedence (AG.SomeOp EX)          = 1
@@ -129,20 +141,29 @@ instance HasPrecedence Op where
   precedence (AG.SomeOp Disjunction) = 3
   precedence (AG.SomeOp EU)          = 4
   precedence (AG.SomeOp AU)          = 4
+  precedence (AG.SomeOp BodyAt{})    = 5
 
-instance Pretty (Op opKind) where
-  pretty Dogru       = "TRUE"
-  pretty Negation    = "!"
-  pretty Conjunction = ", "
-  pretty Disjunction = "; "
-  pretty EX          = "EX "
-  pretty EF          = "EF "
-  pretty EG          = "EG "
-  pretty EU          = " EU "
-  pretty AX          = "AX "
-  pretty AF          = "AF "
-  pretty AG          = "AG "
-  pretty AU          = " AU "
+instance HasPrecedence HOp where
+  precedence AG.NoOp              = 0
+  precedence (AG.SomeOp HeadAt{}) = 1
+
+instance Pretty (BOp opKind) where
+  pretty Dogru         = "TRUE"
+  pretty Negation      = "!"
+  pretty Conjunction   = ", "
+  pretty Disjunction   = "; "
+  pretty EX            = "EX "
+  pretty EF            = "EF "
+  pretty EG            = "EG "
+  pretty EU            = " EU "
+  pretty AX            = "AX "
+  pretty AF            = "AF "
+  pretty AG            = "AG "
+  pretty AU            = " AU "
+  pretty (BodyAt time) = pretty time <+> "@ "
+
+instance Pretty (HOp opKind) where
+  pretty (HeadAt time) = pretty time <+> "@ "
 
 instance Pretty Declaration where
   pretty (Declaration _ atom mTime) =
