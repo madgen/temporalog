@@ -224,10 +224,8 @@ lex file source =
 
 #if defined (DEBUG) && defined (LEXER)
     traceShowM tok
-    stack <- fmap StartCode . startCodeStack <$> getUserState
-    traceM $ "Start code stack: " <> show stack
-    startCode <- alexGetStartCode
-    traceM $ "Current start code: " <> show (StartCode startCode)
+    debugStartCodeStack
+    debugStartCode
 #endif
 
     if tok == eof
@@ -235,6 +233,14 @@ lex file source =
       else (tok :) <$> lexM
 
 #if defined (DEBUG) && defined (LEXER)
+debugStartCodeStack = do
+  stack <- fmap StartCode . startCodeStack <$> getUserState
+  traceM $ "Start code stack: " <> show stack
+
+debugStartCode = do
+  startCode <- alexGetStartCode
+  traceM $ "Active start code: " <> show (StartCode startCode)
+
 newtype StartCode = StartCode Int
 
 instance Show StartCode where
