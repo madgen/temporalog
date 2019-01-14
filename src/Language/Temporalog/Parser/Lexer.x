@@ -13,6 +13,10 @@ import           Language.Vanillalog.Generic.Error (Error(..), Severity(..))
 import           Language.Vanillalog.Generic.Parser.SrcLoc hiding (file)
 import qualified Language.Vanillalog.Generic.Parser.Lexeme as L
 import qualified Language.Vanillalog.Generic.Logger as Log
+
+#ifdef DEBUG
+import Debug.Trace
+#endif
 }
 
 %wrapper "monadUserState-bytestring"
@@ -212,7 +216,30 @@ lex file source =
 
   lexM = do
     tok <- alexMonadScan
+
+#if defined (DEBUG) && defined (LEXER)
+    traceShowM tok
+    stack <- fmap StartCode . startCodeStack <$> getUserState
+    traceM $ "Start code stack: " <> show stack
+    startCode <- alexGetStartCode
+    traceM $ "Current start code: " <> show (StartCode startCode)
+#endif
+
     if tok == eof
       then return [ eof ]
       else (tok :) <$> lexM
+
+#if defined (DEBUG) && defined (LEXER)
+newtype StartCode = StartCode Int
+
+instance Show StartCode where
+  show (StartCode i) =
+    if i == 0         then "0"
+    else if i == scA  then "atom"
+    else if i == scB  then "body"
+    else if i == scD  then "decl"
+    else if i == scDA then "decl atom"
+    else if i == str  then "string"
+    else error "Unknown start code"
+#endif
 }
