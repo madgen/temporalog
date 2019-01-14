@@ -100,6 +100,7 @@ SUBGOAL :: { Subgoal BOp Term }
 | af SUBGOAL                  { SAF (span ($1,$2)) $2 }
 | ag SUBGOAL                  { SAG (span ($1,$2)) $2 }
 | a "[" SUBGOAL u SUBGOAL "]" { SAU (span ($1,$6)) $3 $5 }
+| SUBGOAL "@" TERM            { SBodyAt (span ($1,$3)) $1 $3 }
 
 ATOMIC_FORMULA :: { AtomicFormula Term }
 : fxSym "(" TERMS ")" { AtomicFormula (span ($1,$4)) (_tStr . L._token $ $1) (reverse $3) }
