@@ -61,17 +61,15 @@ token :-
 <scB> "AG"       { basic TAG }
 <scB> "A"        { basic TA }
 <scB> "U"        { basic TU }
-<scB> "@"        { basic TAt `andEnterStartCode` scBT }
-<scBT> @var      { exitStartCodeAnd $ useInput TVariable }
 
 <scB>     ":-"     { basic TRule }
-<0>       "?-"     { basic TQuery `andEnterStartCode` scB }
-<0>       ".decl"  { basic TDecl  `andEnterStartCode` scD }
+<0>       "?-"     { enterStartCodeAnd scB $ basic TQuery }
+<0>       ".decl"  { enterStartCodeAnd scD $ basic TDecl }
 <scB,scD> "."      { exitStartCodeAnd $ basic TDot }
 <scDA>    "."      { exitStartCodeAnd $ exitStartCodeAnd $ basic TDot }
 
-<0>        @fxSym { useInput TFxSym `andEnterStartCode` scB `andEnterStartCode` scA }
-<scB>      @fxSym { useInput TFxSym `andEnterStartCode` scA }
+<0>        @fxSym { enterStartCodeAnd scB $ enterStartCodeAnd scA $ useInput TFxSym }
+<scB>      @fxSym { enterStartCodeAnd scA $ useInput TFxSym }
 <scA,scDA> "("    { basic TLeftPar }
 <scA,scDA> ")"    { exitStartCodeAnd $ basic TRightPar }
 <scA>      true   { basic (TBool True) }
@@ -79,16 +77,24 @@ token :-
 <scA>      @var   { useInput TVariable }
 <scA>      @int   { useInput (TInt . read . BS.unpack) }
 
-<scD>      @fxSym { useInput TFxSym `andEnterStartCode` scDA }
+<scD>      @fxSym { enterStartCodeAnd scDA $ useInput TFxSym }
 <scDA>     "int"  { basic TTTInt }
 <scDA>     "bool" { basic TTTBool }
 <scDA>     "text" { basic TTTText }
-<scD>      "@"    { basic TAt `andEnterStartCode` scDT }
-<scDT>     @fxSym { exitStartCodeAnd $ useInput TFxSym }
 
-<scA> \"         { enterStartCode str }
-<str> [^\"]+     { useInput TStr }
-<str> \"         { exitStartCode }
+<scD>  "@"    { enterStartCodeAnd scDT $ basic TAt }
+<scDT> @fxSym { exitStartCodeAnd $ useInput TFxSym }
+
+<scB> "@"     { enterStartCodeAnd scBT $ basic TAt }
+<scBT> true   { exitStartCodeAnd $ basic (TBool True) }
+<scBT> false  { exitStartCodeAnd $ basic (TBool False) }
+<scBT> @var   { exitStartCodeAnd $ useInput TVariable }
+<scBT> @int   { exitStartCodeAnd $ useInput (TInt . read . BS.unpack) }
+<scBT> \"     { exitStartCodeAnd $ enterStartCodeAnd str $ skip }
+
+<scA> \"     { enterStartCodeAnd str $ skip }
+<str> [^\"]+ { useInput TStr }
+<str> \"     { exitStartCodeAnd skip }
 
 {
 data Token str =
@@ -198,18 +204,12 @@ exitStartCode' = do
   startCodeToReturn <- popStartCode
   alexSetStartCode startCodeToReturn
 
-andEnterStartCode :: AlexAction a -> Int -> AlexAction a
-andEnterStartCode action startCode input len =
-  action input len <* enterStartCode' startCode
+enterStartCodeAnd :: Int -> AlexAction a -> AlexAction a
+enterStartCodeAnd startCode action inp len =
+  enterStartCode' startCode *> action inp len
 
 exitStartCodeAnd :: AlexAction a -> AlexAction a
-exitStartCodeAnd action input len = exitStartCode' >> action input len
-
-enterStartCode :: Int -> AlexAction (L.Lexeme (Token ByteString.ByteString))
-enterStartCode = andEnterStartCode skip
-
-exitStartCode :: AlexAction (L.Lexeme (Token ByteString.ByteString))
-exitStartCode = exitStartCodeAnd skip
+exitStartCodeAnd action inp len = exitStartCode' *> action inp len
 
 lex :: FilePath -> BS.ByteString -> Log.LoggerM [ L.Lexeme (Token Text) ]
 lex file source =
