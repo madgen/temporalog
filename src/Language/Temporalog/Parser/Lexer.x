@@ -29,14 +29,16 @@ import Debug.Trace
 
 -- Start codes
 -- scB  = Body
+-- scBT = Body time
 -- scD  = Declaration
+-- scDT = Declaration time
 -- scA  = Atom
 -- scDA = Declaration atom
 -- str  = String
 token :-
 
-<0,scB,scA,scD> $white+  ;
-<0>             "%".*    ;
+<0,scB,scBT,scA,scDA,scD,scDT> $white+  ;
+<0>                            "%".*    ;
 
 <0,scB>    "("  { basic TLeftPar }
 <0,scB>    ")"  { basic TRightPar }
@@ -59,16 +61,17 @@ token :-
 <scB> "AG"       { basic TAG }
 <scB> "A"        { basic TA }
 <scB> "U"        { basic TU }
-<scB,scD> "@"    { basic TAt }
+<scB> "@"        { basic TAt `andEnterStartCode` scBT }
+<scBT> @var      { exitStartCodeAnd $ useInput TVariable }
 
-<0>       ":-"     { basic TRule  `andEnterStartCode` scB }
+<scB>     ":-"     { basic TRule }
 <0>       "?-"     { basic TQuery `andEnterStartCode` scB }
 <0>       ".decl"  { basic TDecl  `andEnterStartCode` scD }
-<0>       "."      { basic TDot }
 <scB,scD> "."      { exitStartCodeAnd $ basic TDot }
 <scDA>    "."      { exitStartCodeAnd $ exitStartCodeAnd $ basic TDot }
 
-<0,scB>    @fxSym { useInput TFxSym `andEnterStartCode` scA }
+<0>        @fxSym { useInput TFxSym `andEnterStartCode` scB `andEnterStartCode` scA }
+<scB>      @fxSym { useInput TFxSym `andEnterStartCode` scA }
 <scA,scDA> "("    { basic TLeftPar }
 <scA,scDA> ")"    { exitStartCodeAnd $ basic TRightPar }
 <scA>      true   { basic (TBool True) }
@@ -80,6 +83,8 @@ token :-
 <scDA>     "int"  { basic TTTInt }
 <scDA>     "bool" { basic TTTBool }
 <scDA>     "text" { basic TTTText }
+<scD>      "@"    { basic TAt `andEnterStartCode` scDT }
+<scDT>     @fxSym { exitStartCodeAnd $ useInput TFxSym }
 
 <scA> \"         { enterStartCode str }
 <str> [^\"]+     { useInput TStr }
@@ -237,7 +242,9 @@ instance Show StartCode where
     if i == 0         then "0"
     else if i == scA  then "atom"
     else if i == scB  then "body"
+    else if i == scBT then "body time"
     else if i == scD  then "decl"
+    else if i == scDT then "decl time"
     else if i == scDA then "decl atom"
     else if i == str  then "string"
     else error "Unknown start code"
