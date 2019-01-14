@@ -195,7 +195,7 @@ exitStartCode' = do
 
 andEnterStartCode :: AlexAction a -> Int -> AlexAction a
 andEnterStartCode action startCode input len =
-  enterStartCode' startCode >> action input len
+  action input len <* enterStartCode' startCode
 
 exitStartCodeAnd :: AlexAction a -> AlexAction a
 exitStartCodeAnd action input len = exitStartCode' >> action input len
