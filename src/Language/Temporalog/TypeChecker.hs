@@ -40,7 +40,7 @@ typeCheck metadata program = void $ transformM (\s -> check (collect s) $> s) pr
         localEnvExtension <- unify (_terms atom) (MD.typ predInfo)
         foldrM add localEnv localEnvExtension
       Nothing -> Log.scream (Just s) $
-        "There are no typing declarations for " <> predSym <> "."
+        "There are no typing declarations for " <> pp predSym <> "."
 
 arityCheck :: AtomicFormula Term -> MD.PredicateInfo -> Log.LoggerM ()
 arityCheck AtomicFormula{..} predInfo = do
@@ -48,7 +48,7 @@ arityCheck AtomicFormula{..} predInfo = do
   let expectedArity = MD.arity predInfo
   unless (realArity == expectedArity) $
     Log.scold (Just _span) $
-      "Expected arity of " <> _predSym <> " is " <> (pack . show) expectedArity <>
+      "Expected arity of " <> pp _predSym <> " is " <> (pack . show) expectedArity <>
       " but its use has arity " <> (pack . show) realArity <> "."
 
 add :: (Var, TermType)

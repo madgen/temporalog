@@ -75,7 +75,7 @@ CLAUSES :: { [ Statement ] }
 
 DECLARATION :: { Declaration }
 : decl ATOM_TYPE "."           { Declaration (span ($1,$3)) $2 Nothing }
-| decl ATOM_TYPE "@" fxSym "." { Declaration (span ($1,$5)) $2 (Just $ _tStr . L._token $ $4) }
+| decl ATOM_TYPE "@" fxSym "." { Declaration (span ($1,$5)) $2 (Just $ PredicateSymbol . pure . _tStr . L._token $ $4) }
 
 CLAUSE :: { Sentence }
 : HEAD ":-" SUBGOAL "." { let s = span ($1,$4) in G.SClause s $ G.Clause s $1 $3 }
@@ -103,12 +103,12 @@ SUBGOAL :: { Subgoal BOp Term }
 | SUBGOAL "@" TERM            { SBodyAt (span ($1,$3)) $1 $3 }
 
 ATOMIC_FORMULA :: { AtomicFormula Term }
-: fxSym "(" TERMS ")" { AtomicFormula (span ($1,$4)) (_tStr . L._token $ $1) (reverse $3) }
-| fxSym               { AtomicFormula (span $1)      (_tStr . L._token $ $1) [] }
+: fxSym "(" TERMS ")" { AtomicFormula (span ($1,$4)) (PredicateSymbol . pure . _tStr . L._token $ $1) (reverse $3) }
+| fxSym               { AtomicFormula (span $1)      (PredicateSymbol . pure . _tStr . L._token $ $1) [] }
 
 ATOM_TYPE :: { AtomicFormula TermType }
-: fxSym "(" TYPES ")" { AtomicFormula (span ($1,$4)) (_tStr . L._token $ $1) (reverse $3) }
-| fxSym               { AtomicFormula (span $1)      (_tStr . L._token $ $1) [] }
+: fxSym "(" TYPES ")" { AtomicFormula (span ($1,$4)) (PredicateSymbol . pure . _tStr . L._token $ $1) (reverse $3) }
+| fxSym               { AtomicFormula (span $1)      (PredicateSymbol . pure . _tStr . L._token $ $1) [] }
 
 TERMS :: { [ Term ] }
 : TERMS "," TERM { $3 : $1 }

@@ -10,6 +10,7 @@ module Language.Temporalog.Metadata
   , lookup
   , typ
   , arity
+  , timingPred
   ) where
 
 import Protolude
@@ -29,7 +30,7 @@ import           Language.Vanillalog.Generic.Parser.SrcLoc (span, dummySpan)
 import Language.Temporalog.AST
 
 data Timing = Timing
-  { _predSym :: Text
+  { _predSym :: AG.PredicateSymbol
   , _type    :: TermType
   }
 
@@ -44,9 +45,12 @@ typ = _originalType
 arity :: PredicateInfo -> Int
 arity = length . typ
 
-type Metadata = M.Map Text PredicateInfo
+timingPred :: PredicateInfo -> Maybe AG.PredicateSymbol
+timingPred PredicateInfo{..} = (\Timing{..} -> _predSym) <$> _timing
 
-lookup :: Text -> Metadata -> Maybe PredicateInfo
+type Metadata = M.Map AG.PredicateSymbol PredicateInfo
+
+lookup :: AG.PredicateSymbol -> Metadata -> Maybe PredicateInfo
 lookup = M.lookup
 
 -- |Extract metadata from declarations
@@ -81,7 +85,7 @@ processMetadata program = do
 
   pure $ timingMap `M.union` deductiveMap `M.union` temporalMap
   where
-  processATemporal :: Declaration -> (Text, PredicateInfo)
+  processATemporal :: Declaration -> (AG.PredicateSymbol, PredicateInfo)
   processATemporal Declaration{..} =
     ( #_predSym _atomType
     , PredicateInfo
@@ -92,7 +96,7 @@ processMetadata program = do
 
   processTemporal :: Metadata
                   -> Declaration
-                  -> Log.LoggerM (Text, PredicateInfo)
+                  -> Log.LoggerM (AG.PredicateSymbol, PredicateInfo)
   processTemporal timingMap Declaration{..} = do
     tSym <- maybe (Log.scream Nothing "Processing an atemporal predicate.") pure
       _timePredSym
@@ -116,15 +120,17 @@ processMetadata program = do
 uniquenessCheck :: [ Declaration ] -> Log.LoggerM ()
 uniquenessCheck decls = do
   let predSyms = map (#_predSym . _atomType) decls
-  let diff = predSyms \\ nub predSyms
+  let diff = predSyms \\ nub predSyms :: [ PredicateSymbol ]
   case head diff of
     Nothing              -> pure ()
-    Just repeatedPredSym ->
-      case head . map span . filter ((repeatedPredSym ==) . #_predSym . _atomType) $ decls of
+    Just repeatedPred -> do
+      let repeatedDecls =
+            filter ((repeatedPred ==) . #_predSym . _atomType) decls
+      case head . map span $ repeatedDecls  of
         Just s  -> Log.scold (Just s) $
-          "The declaration for predicate " <> repeatedPredSym <> " is repeated."
+          "The declaration for predicate " <> pp repeatedPred <> " is repeated."
         Nothing -> Log.scream Nothing $
-          "Could not find a declaration for " <> repeatedPredSym <> "."
+          "Could not find a declaration for " <> pp repeatedPred <> "."
 
 -- |Check all predicates appearing in declarations have corresponding clauses
 -- defining them.
@@ -137,14 +143,14 @@ sentenceExistenceCheck sentences decls = forM_ decls $ \Declaration{..} -> do
   where
   checkExistence span pred =
     unless (pred `elem` predsBeingDefined) $
-      Log.scold (Just span) $ "Predicate " <> pred <> " lacks a definition."
+      Log.scold (Just span) $ "Predicate " <> pp pred <> " lacks a definition."
 
   predsBeingDefined = (`mapMaybe` sentences) $ \case
     AG.SQuery{}                                  -> Nothing
     AG.SFact{_fact     = AG.Fact{_head   = sub}} -> Just $ name sub
     AG.SClause{_clause = AG.Clause{_head = sub}} -> Just $ name sub
 
-name :: Subgoal HOp term -> Text
+name :: Subgoal HOp term -> AG.PredicateSymbol
 name AG.SAtom{..}      = #_predSym _atom
 name (SHeadAt _ sub _) = name sub
 
@@ -159,14 +165,14 @@ declarationExistenceCheck sentences decls = forM_ sentences $ \case
   where
   checkExistence span pred =
     unless (pred `elem` predsBeingDeclared) $
-      Log.scold (Just span) $ "Predicate " <> pred <> " lacks a declaration."
+      Log.scold (Just span) $ "Predicate " <> pp pred <> " lacks a declaration."
 
   predsBeingDeclared = map (#_predSym . _atomType) decls
 
 instance Pretty Metadata where
   pretty = PP.vcat . prettyC . M.toList
 
-instance Pretty (Text, PredicateInfo) where
+instance Pretty (AG.PredicateSymbol, PredicateInfo) where
   pretty (predSym, PredicateInfo{..}) =
     pretty AtomicFormula{ _span = dummySpan
                         , _predSym = predSym

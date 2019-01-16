@@ -2,6 +2,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE StandaloneDeriving #-}
 
 module Language.Temporalog.AST
@@ -22,6 +23,7 @@ module Language.Temporalog.AST
   , pattern SHeadAt, pattern SBodyAt
   , HOp(..), BOp(..), AG.OpKind(..), AG.SomeOp(..)
   , AG.AtomicFormula(..)
+  , AG.PredicateSymbol(..)
   , AG.Term(..)
   , AG.TermType(..)
   , AG.termType
@@ -64,7 +66,7 @@ type Subgoal = AG.Subgoal
 data Declaration = Declaration
   { _span :: SrcSpan
   , _atomType :: AG.AtomicFormula AG.TermType
-  , _timePredSym :: Maybe Text
+  , _timePredSym :: Maybe AG.PredicateSymbol
   }
 
 data BOp (k :: AG.OpKind) where
@@ -86,6 +88,9 @@ data BOp (k :: AG.OpKind) where
 
 data HOp (k :: AG.OpKind) where
   HeadAt      :: AG.Term -> HOp 'AG.Unary
+
+deriving instance Ord (HOp opKind)
+deriving instance Ord (BOp opKind)
 
 deriving instance Eq (HOp opKind)
 deriving instance Eq (BOp opKind)
