@@ -58,6 +58,7 @@ import Language.Temporalog.Parser.Lexer (Token(..), lex)
   bool     { L.Lexeme{L._token = TBool{}} }
   eof      { L.Lexeme{L._token = TEOF} }
 
+%right "@"
 %left u
 %left disj
 %left conj
