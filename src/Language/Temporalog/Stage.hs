@@ -4,6 +4,7 @@ module Language.Temporalog.Stage
   ( lex
   , parse
   , metadata
+  , timeParameter
   , typeChecked
   , noDeclaration
   , namedQueries
@@ -34,6 +35,7 @@ import qualified Language.Temporalog.Parser.Lexer as Lexer
 import qualified Language.Temporalog.Parser.Parser as Parser
 import           Language.Temporalog.Transformation.Declaration (removeDecls)
 import           Language.Temporalog.Transformation.TemporalEliminator (eliminateTemporal)
+import           Language.Temporalog.Transformation.TimeParameter (extendWithTime)
 import           Language.Temporalog.TypeChecker (typeCheck)
 
 type Stage a = FilePath -> BS.ByteString -> Log.LoggerM a
@@ -50,9 +52,15 @@ metadata file bs = do
   meta <- MD.processMetadata ast
   pure (meta, ast)
 
+timeParameter :: Stage (MD.Metadata, Program)
+timeParameter file bs = do
+  (meta, ast) <- metadata file bs
+  ast' <- extendWithTime meta ast
+  pure (meta, ast')
+
 rangeRestricted :: Stage (MD.Metadata, Program)
 rangeRestricted file bs = do
-  res@(meta, ast) <- metadata file bs
+  res@(meta, ast) <- timeParameter file bs
   checkRangeRestriction ast
   pure res
 
