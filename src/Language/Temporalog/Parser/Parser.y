@@ -79,9 +79,9 @@ DECLARATION :: { Declaration }
 | decl ATOM_TYPE "@" FX_SYM "." { Declaration (span ($1,$5)) $2 (Just $ snd $4) }
 
 CLAUSE :: { Sentence }
-: HEAD ":-" SUBGOAL "." { let s = span ($1,$4) in G.SClause s $ G.Clause s $1 $3 }
-| HEAD "."              { let s = span ($1,$2) in G.SFact   s $ G.Fact   s $1 }
-| "?-" SUBGOAL "."      { let s = span ($1,$3) in G.SQuery  s $ G.Query  s Nothing $2 }
+: HEAD ":-" SUBGOAL "." { G.SClause $ G.Clause (span ($1,$4)) $1 $3 }
+| HEAD "."              { G.SFact   $ G.Fact   (span ($1,$2)) $1 }
+| "?-" SUBGOAL "."      { G.SQuery  $ G.Query  (span ($1,$3)) Nothing $2 }
 
 HEAD :: { Subgoal HOp Term }
 : ATOMIC_FORMULA { SAtom   (span $1)      $1 }
