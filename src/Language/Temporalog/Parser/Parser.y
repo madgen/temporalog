@@ -70,8 +70,8 @@ PROGRAM :: { Program }
 : CLAUSES eof { G.Program (span $1) . reverse $ $1 }
 
 CLAUSES :: { [ Statement ] }
-: CLAUSES DECLARATION { G.StDeclaration (span $2) $2 : $1 }
-| CLAUSES CLAUSE      { G.StSentence    (span $2) $2 : $1 }
+: CLAUSES DECLARATION { G.StDeclaration $2 : $1 }
+| CLAUSES CLAUSE      { G.StSentence    $2 : $1 }
 |                     { [] }
 
 DECLARATION :: { Declaration }
