@@ -12,15 +12,16 @@ module Language.Temporalog.AST
   , Sentence(..)
   , Query(..)
   , Clause(..)
-  , AG.Fact(..)
+  , Fact(..)
   , Subgoal
   , pattern SAtom, pattern SNeg, pattern SConj, pattern SDisj
   , pattern SAtomF, pattern SNegF, pattern SConjF, pattern SDisjF
   , pattern SEX, pattern SEF, pattern SEG, pattern SEU
   , pattern SAX, pattern SAF, pattern SAG, pattern SAU
+  , pattern SHeadAt, pattern SBodyAt
   , pattern SEXF, pattern SEFF, pattern SEGF, pattern SEUF
   , pattern SAXF, pattern SAFF, pattern SAGF, pattern SAUF
-  , pattern SHeadAt, pattern SBodyAt
+  , pattern SHeadAtF, pattern SBodyAtF
   , HOp(..), BOp(..), AG.OpKind(..), AG.SomeOp(..)
   , AG.AtomicFormula(..)
   , AG.PredicateSymbol(..)
@@ -60,6 +61,8 @@ type Sentence = AG.Sentence HOp BOp
 type Query = AG.Query HOp BOp
 
 type Clause = AG.Clause HOp BOp
+
+type Fact = AG.Fact HOp
 
 type Subgoal = AG.Subgoal
 

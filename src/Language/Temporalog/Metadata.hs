@@ -12,6 +12,7 @@ module Language.Temporalog.Metadata
   , typ
   , arity
   , timingPred
+  , hasTiming
   ) where
 
 import Protolude
@@ -45,6 +46,9 @@ typ = _originalType
 
 arity :: PredicateInfo -> Int
 arity = length . typ
+
+hasTiming :: PredicateInfo -> Bool
+hasTiming PredicateInfo{..} = isJust _timing
 
 timingPred :: PredicateInfo -> Maybe AG.PredicateSymbol
 timingPred PredicateInfo{..} = (\Timing{..} -> _predSym) <$> _timing

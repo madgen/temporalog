@@ -34,9 +34,9 @@ extendWithTime metadata = transformM go
     pure $ M.fromList $ evalState varGenAction 0
 
   collect :: Sentence -> Log.LoggerM (M.Map PredicateSymbol Var)
-  collect s@AG.SFact{_fact = Fact{..}}          = generateMap s (AG.atoms _head)
+  collect s@AG.SFact{_fact = AG.Fact{..}}       = generateMap s (AG.atoms _head)
   collect s@AG.SClause{_clause = AG.Clause{..}} = generateMap s (AG.atoms _head <> AG.atoms _body)
-  collect s@AG.SQuery{_query = AG.Query{..}} =
+  collect s@AG.SQuery{_query = AG.Query{..}}    =
     case _head of
       Nothing -> generateMap s (AG.atoms _body)
       Just _  -> Log.scream (Just _span)
