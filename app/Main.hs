@@ -25,9 +25,10 @@ data Stage =
     TemporalLex
   | TemporalParse
   | TemporalMeta
-  | TemporalExplicit
-  | TemporalType
   | TemporalNoDecl
+  | TemporalExplicit
+  | TemporalNoAt
+  | TemporalType
   | TemporalNoTime
   | VanillaNormal
   | Exalog
@@ -37,9 +38,9 @@ stageParser =
      stageFlag' TemporalLex      "lex"           "Tokenize"
  <|> stageFlag' TemporalParse    "parse"         "Parse"
  <|> stageFlag' TemporalMeta     "metadata"      "Dump metadata"
- <|> stageFlag' TemporalExplicit "explicit-time" "Extend atoms with time parameter"
- <|> stageFlag' TemporalType     "typecheck"     "Type check"
  <|> stageFlag' TemporalNoDecl   "nodecl"        "Normalise using declarations"
+ <|> stageFlag' TemporalNoAt     "no-at"         "Remove @ operator"
+ <|> stageFlag' TemporalType     "typecheck"     "Type check"
  <|> stageFlag' TemporalNoTime   "notime"        "Eliminate temporal ops"
  <|> stageFlag' VanillaNormal    "normal"        "Normalise"
  <|> stageFlag' Exalog           "exalog"        "Compiled Exalog program"
@@ -63,11 +64,13 @@ prettyPrint PPOptions{..} = do
     TemporalParse    -> succeedOrDie (Stage.parse file) bs $ putStrLn . pp
     TemporalMeta     -> succeedOrDie (fmap fst <$> Stage.metadata file) bs $
       putStrLn . pp
-    TemporalExplicit -> succeedOrDie (fmap snd <$> Stage.timeParameter file) bs $
-      putStrLn . pp
-    TemporalType     -> succeedOrDie (Stage.typeChecked file) bs $ void . pure
     TemporalNoDecl   -> succeedOrDie (fmap snd <$> Stage.noDeclaration file) bs $
       putStrLn . pp
+    TemporalExplicit -> succeedOrDie (fmap snd <$> Stage.timeParameter file) bs $
+      putStrLn . pp
+    TemporalNoAt     -> succeedOrDie (fmap snd <$> Stage.atRemoved file) bs $
+      putStrLn . pp
+    TemporalType     -> succeedOrDie (Stage.typeChecked file) bs $ void . pure
     TemporalNoTime   -> succeedOrDie (Stage.noTemporal file) bs $ putStrLn . pp
     VanillaNormal    -> succeedOrDie (Stage.normalised file) bs $ putStrLn . pp
     Exalog           -> succeedOrDie (Stage.compiled file) bs $

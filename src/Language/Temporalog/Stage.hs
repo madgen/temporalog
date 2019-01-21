@@ -4,9 +4,10 @@ module Language.Temporalog.Stage
   ( lex
   , parse
   , metadata
-  , timeParameter
-  , typeChecked
   , noDeclaration
+  , timeParameter
+  , atRemoved
+  , typeChecked
   , namedQueries
   , noTemporal
   , normalised
