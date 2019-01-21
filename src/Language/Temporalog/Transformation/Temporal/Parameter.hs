@@ -3,7 +3,9 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedLabels #-}
 
-module Language.Temporalog.Transformation.TimeParameter (extendWithTime) where
+module Language.Temporalog.Transformation.Temporal.Parameter
+  ( extendParameters
+  ) where
 
 import Protolude
 
@@ -20,10 +22,10 @@ import           Language.Vanillalog.Generic.Parser.SrcLoc (SrcSpan, Spannable(.
 import qualified Language.Temporalog.Metadata as MD
 import           Language.Temporalog.AST
 
-extendWithTime :: MD.Metadata
+extendParameters :: MD.Metadata
                -> AG.Program Void HOp (BOp AtOn)
                -> Log.LoggerM (AG.Program Void HOp (BOp AtOn))
-extendWithTime metadata = transformM go
+extendParameters metadata = transformM go
   where
   timingPredM AtomicFormula{..} =
     MD.timingPred <$> _predSym `MD.lookupM` metadata

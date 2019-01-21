@@ -37,7 +37,7 @@ import qualified Language.Temporalog.Parser.Parser as Parser
 import           Language.Temporalog.Transformation.Declaration (removeDecls)
 import           Language.Temporalog.Transformation.Temporal.CTL (eliminateTemporal)
 import           Language.Temporalog.Transformation.Temporal.Hybrid (eliminateAt)
-import           Language.Temporalog.Transformation.TimeParameter (extendWithTime)
+import           Language.Temporalog.Transformation.Temporal.Parameter (extendParameters)
 import           Language.Temporalog.TypeChecker (typeCheck)
 
 type Stage a = FilePath -> BS.ByteString -> Log.LoggerM a
@@ -60,7 +60,7 @@ noDeclaration file bs = second removeDecls <$> metadata file bs
 timeParameter :: Stage (MD.Metadata, AG.Program Void HOp (BOp AtOn))
 timeParameter file bs = do
   (meta, ast) <- noDeclaration file bs
-  ast' <- extendWithTime meta ast
+  ast' <- extendParameters meta ast
   pure (meta, ast')
 
 atRemoved :: Stage (MD.Metadata, AG.Program Void (Const Void) (BOp AtOff))
