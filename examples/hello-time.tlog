@@ -1,12 +1,15 @@
 .decl t(int,int).
 t(1,2).
 
+.decl t2(int,int).
+t2(1,2).
+
 .decl q(int).
 q(42).
 
-.decl r(bool,int) @ t.
+.decl r(bool,int) @ t2.
 r(false,0).
 r(true,Y) @ T :- q(Y).
 
 .decl p(int) @ t.
-p(X) :- q(24), AG p(42), E[ p(X) U q(Y); r(Z,X) ].
+p(X) :- q(24), AG p(42) @ 0, E[ p(X) U q(Y); r(Z,X) ].
