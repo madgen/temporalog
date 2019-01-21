@@ -35,6 +35,7 @@ import qualified Language.Temporalog.Parser.Lexer as Lexer
 import qualified Language.Temporalog.Parser.Parser as Parser
 import           Language.Temporalog.Transformation.Declaration (removeDecls)
 import           Language.Temporalog.Transformation.Temporal.CTL (eliminateTemporal)
+import           Language.Temporalog.Transformation.Temporal.Hybrid (eliminateAt)
 import           Language.Temporalog.Transformation.TimeParameter (extendWithTime)
 import           Language.Temporalog.TypeChecker (typeCheck)
 
@@ -61,19 +62,25 @@ timeParameter file bs = do
   ast' <- extendWithTime meta ast
   pure (meta, ast')
 
-rangeRestricted :: Stage (MD.Metadata, AG.Program Void HOp (BOp AtOn))
+atRemoved :: Stage (MD.Metadata, AG.Program Void (Const Void) (BOp AtOff))
+atRemoved file bs = do
+  (meta, ast) <- timeParameter file bs
+  ast' <- eliminateAt meta ast
+  pure (meta, ast')
+
+rangeRestricted :: Stage (MD.Metadata, AG.Program Void (Const Void) (BOp AtOff))
 rangeRestricted file bs = do
-  res@(meta, ast) <- timeParameter file bs
+  res@(meta, ast) <- atRemoved file bs
   checkRangeRestriction ast
   pure res
 
-typeChecked :: Stage (MD.Metadata, AG.Program Void HOp (BOp AtOn))
+typeChecked :: Stage (MD.Metadata, AG.Program Void (Const Void) (BOp AtOff))
 typeChecked file bs = do
   res <- rangeRestricted file bs
   uncurry typeCheck res
   pure res
 
-namedQueries :: Stage (MD.Metadata, AG.Program Void HOp (BOp AtOn))
+namedQueries :: Stage (MD.Metadata, AG.Program Void (Const Void) (BOp AtOff))
 namedQueries file bs = do
   (meta, ast) <- typeChecked file bs
   ast' <- nameQueries ast

@@ -16,16 +16,16 @@ import           Language.Temporalog.AST
 import qualified Language.Temporalog.Metadata as MD
 
 eliminateAt :: MD.Metadata
-            -> Program
-            -> Log.LoggerM (AG.Program Declaration (Const Void) (BOp AtOff))
+            -> AG.Program Void HOp (BOp AtOn)
+            -> Log.LoggerM (AG.Program Void (Const Void) (BOp AtOff))
 eliminateAt metadata AG.Program{..} =
   (\sts -> AG.Program{_statements = sts,..}) <$> traverse eliminateAtSt _statements
   where
-  eliminateAtSt :: Statement
-                -> Log.LoggerM (AG.Statement Declaration (Const Void) (BOp AtOff))
+  eliminateAtSt :: AG.Statement Void HOp (BOp AtOn)
+                -> Log.LoggerM (AG.Statement Void (Const Void) (BOp AtOff))
   eliminateAtSt AG.StSentence{..} =
     (\sent -> AG.StSentence{_sentence = sent,..}) <$> eliminateAtSent _sentence
-  eliminateAtSt AG.StDeclaration{..} = pure AG.StDeclaration{..}
+  eliminateAtSt AG.StDeclaration{..} = absurd _declaration
 
   eliminateAtSent :: Sentence -> Log.LoggerM (AG.Sentence (Const Void) (BOp AtOff))
   eliminateAtSent AG.SClause{..} =

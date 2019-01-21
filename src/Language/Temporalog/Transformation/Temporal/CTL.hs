@@ -10,5 +10,6 @@ import qualified Language.Vanillalog.AST as A
 
 import Language.Temporalog.AST
 
-eliminateTemporal :: AG.Program Void HOp (BOp AtOn) -> Log.LoggerM A.Program
+eliminateTemporal :: AG.Program Void (Const Void) (BOp AtOff)
+                  -> Log.LoggerM A.Program
 eliminateTemporal = _
