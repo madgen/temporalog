@@ -42,7 +42,8 @@ data PredicateInfo = PredicateInfo
   }
 
 typ :: PredicateInfo -> [ TermType ]
-typ = _originalType
+typ PredicateInfo{..} =
+  maybe _originalType (\Timing{..} -> _originalType <> [ _type ]) _timing
 
 arity :: PredicateInfo -> Int
 arity = length . typ
