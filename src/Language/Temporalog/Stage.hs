@@ -52,30 +52,30 @@ metadata file bs = do
   meta <- MD.processMetadata ast
   pure (meta, ast)
 
-timeParameter :: Stage (MD.Metadata, Program)
+noDeclaration :: Stage (MD.Metadata, AG.Program Void HOp (BOp AtOn))
+noDeclaration file bs = second removeDecls <$> metadata file bs
+
+timeParameter :: Stage (MD.Metadata, AG.Program Void HOp (BOp AtOn))
 timeParameter file bs = do
-  (meta, ast) <- metadata file bs
+  (meta, ast) <- noDeclaration file bs
   ast' <- extendWithTime meta ast
   pure (meta, ast')
 
-rangeRestricted :: Stage (MD.Metadata, Program)
+rangeRestricted :: Stage (MD.Metadata, AG.Program Void HOp (BOp AtOn))
 rangeRestricted file bs = do
   res@(meta, ast) <- timeParameter file bs
   checkRangeRestriction ast
   pure res
 
-typeChecked :: Stage (MD.Metadata, Program)
+typeChecked :: Stage (MD.Metadata, AG.Program Void HOp (BOp AtOn))
 typeChecked file bs = do
   res <- rangeRestricted file bs
   uncurry typeCheck res
   pure res
 
-noDeclaration :: Stage (MD.Metadata, AG.Program Void HOp (BOp AtOn))
-noDeclaration file bs = second removeDecls <$> typeChecked file bs
-
 namedQueries :: Stage (MD.Metadata, AG.Program Void HOp (BOp AtOn))
 namedQueries file bs = do
-  (meta, ast) <- noDeclaration file bs
+  (meta, ast) <- typeChecked file bs
   ast' <- nameQueries ast
   pure (meta, ast')
 

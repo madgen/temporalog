@@ -1,6 +1,7 @@
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedLabels #-}
-{-# LANGUAGE TupleSections #-}
 
 module Language.Temporalog.Transformation.TimeParameter (extendWithTime) where
 
@@ -19,7 +20,9 @@ import           Language.Vanillalog.Generic.Parser.SrcLoc (SrcSpan, Spannable(.
 import qualified Language.Temporalog.Metadata as MD
 import           Language.Temporalog.AST
 
-extendWithTime :: MD.Metadata -> Program -> Log.LoggerM Program
+extendWithTime :: MD.Metadata
+               -> AG.Program Void HOp (BOp AtOn)
+               -> Log.LoggerM (AG.Program Void HOp (BOp AtOn))
 extendWithTime metadata = transformM go
   where
   timingPredM AtomicFormula{..} =

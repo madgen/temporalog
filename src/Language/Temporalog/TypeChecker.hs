@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Language.Temporalog.TypeChecker (typeCheck) where
@@ -18,7 +19,7 @@ import qualified Language.Temporalog.Metadata as MD
 
 type LocalTypeEnvironment  = [ (Var, TermType) ]
 
-typeCheck :: MD.Metadata -> Program -> Log.LoggerM ()
+typeCheck :: MD.Metadata -> AG.Program Void HOp (BOp AtOn) -> Log.LoggerM ()
 typeCheck metadata program = void $ transformM (\s -> check (collect s) $> s) program
   where
   collect :: Sentence -> [ AtomicFormula Term ]
