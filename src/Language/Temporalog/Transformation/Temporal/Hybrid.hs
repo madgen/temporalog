@@ -2,7 +2,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE GADTs #-}
 
-module Language.Temporalog.Transformation.AtEliminator where
+module Language.Temporalog.Transformation.Temporal.Hybrid (eliminateAt) where
 
 import Protolude
 

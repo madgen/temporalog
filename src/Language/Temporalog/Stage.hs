@@ -34,7 +34,7 @@ import qualified Language.Temporalog.Metadata as MD
 import qualified Language.Temporalog.Parser.Lexer as Lexer
 import qualified Language.Temporalog.Parser.Parser as Parser
 import           Language.Temporalog.Transformation.Declaration (removeDecls)
-import           Language.Temporalog.Transformation.TemporalEliminator (eliminateTemporal)
+import           Language.Temporalog.Transformation.Temporal.CTL (eliminateTemporal)
 import           Language.Temporalog.Transformation.TimeParameter (extendWithTime)
 import           Language.Temporalog.TypeChecker (typeCheck)
 
