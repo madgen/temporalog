@@ -38,7 +38,7 @@ stageParser =
      stageFlag' TemporalLex      "lex"           "Tokenize"
  <|> stageFlag' TemporalParse    "parse"         "Parse"
  <|> stageFlag' TemporalMeta     "metadata"      "Dump metadata"
- <|> stageFlag' TemporalNoDecl   "nodecl"        "Normalise using declarations"
+ <|> stageFlag' TemporalNoDecl   "no-decl"       "Remove declarations"
  <|> stageFlag' TemporalNoAt     "no-at"         "Remove @ operator"
  <|> stageFlag' TemporalType     "typecheck"     "Type check"
  <|> stageFlag' TemporalNoTime   "notime"        "Eliminate temporal ops"
