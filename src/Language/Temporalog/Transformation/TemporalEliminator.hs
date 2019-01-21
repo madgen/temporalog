@@ -1,3 +1,5 @@
+{-# LANGUAGE DataKinds #-}
+
 module Language.Temporalog.Transformation.TemporalEliminator
   ( eliminateTemporal
   ) where
@@ -10,5 +12,5 @@ import qualified Language.Vanillalog.AST as A
 
 import Language.Temporalog.AST
 
-eliminateTemporal :: AG.Program Void HOp BOp -> Log.LoggerM A.Program
+eliminateTemporal :: AG.Program Void HOp (BOp AtOn) -> Log.LoggerM A.Program
 eliminateTemporal = _

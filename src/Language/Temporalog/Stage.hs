@@ -70,10 +70,10 @@ typeChecked file bs = do
   uncurry typeCheck res
   pure res
 
-noDeclaration :: Stage (MD.Metadata, AG.Program Void HOp BOp)
+noDeclaration :: Stage (MD.Metadata, AG.Program Void HOp (BOp AtOn))
 noDeclaration file bs = second removeDecls <$> typeChecked file bs
 
-namedQueries :: Stage (MD.Metadata, AG.Program Void HOp BOp)
+namedQueries :: Stage (MD.Metadata, AG.Program Void HOp (BOp AtOn))
 namedQueries file bs = do
   (meta, ast) <- noDeclaration file bs
   ast' <- nameQueries ast
