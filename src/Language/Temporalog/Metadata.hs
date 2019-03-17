@@ -167,7 +167,7 @@ sentenceExistenceCheck sentences decls = forM_ decls $ \Declaration{..} -> do
 
 name :: Subgoal HOp term -> AG.PredicateSymbol
 name AG.SAtom{..}        = #_predSym _atom
-name (SHeadAt _ sub _ _) = name sub
+name (SHeadJump _ sub _ _) = name sub
 
 -- |Check all predicates defined have corresponding declarations.
 declarationExistenceCheck :: [ Sentence ] -> [ Declaration ] -> Log.LoggerM ()

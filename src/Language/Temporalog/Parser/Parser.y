@@ -51,7 +51,7 @@ import Language.Temporalog.Parser.Lexer (Token(..), lex)
   ag       { L.Lexeme{L._token = TAG} }
   a        { L.Lexeme{L._token = TA} }
   u        { L.Lexeme{L._token = TU} }
-  "@"      { L.Lexeme{L._token = TAt} }
+  "@"      { L.Lexeme{L._token = TJump} }
 
   fxSym    { L.Lexeme{L._token = TFxSym{}} }
   var      { L.Lexeme{L._token = TVariable{}} }
@@ -86,8 +86,8 @@ CLAUSE :: { Sentence }
 | "?-" SUBGOAL "."      { G.SQuery  $ G.Query  (span ($1,$3)) Nothing $2 }
 
 HEAD :: { Subgoal HOp Term }
-: ATOMIC_FORMULA { SAtom   (span $1)      $1 }
-| HEAD "@" FX_SYM TERM  { SHeadAt (span ($1,$4)) $1 (snd $3) $4 }
+: ATOMIC_FORMULA        { SAtom     (span $1)      $1 }
+| HEAD "@" FX_SYM TERM  { SHeadJump (span ($1,$4)) $1 (snd $3) $4 }
 
 SUBGOAL :: { Subgoal (BOp 'Temporal) Term }
 : ATOMIC_FORMULA              { SAtom (span $1) $1 }
@@ -103,7 +103,7 @@ SUBGOAL :: { Subgoal (BOp 'Temporal) Term }
 | af SUBGOAL                  { SAF (span ($1,$2)) $2 }
 | ag SUBGOAL                  { SAG (span ($1,$2)) $2 }
 | a "[" SUBGOAL u SUBGOAL "]" { SAU (span ($1,$6)) $3 $5 }
-| SUBGOAL "@" FX_SYM TERM     { SBodyAt (span ($1,$4)) $1 (snd $3) $4 }
+| SUBGOAL "@" FX_SYM TERM     { SBodyJump (span ($1,$4)) $1 (snd $3) $4 }
 
 ATOMIC_FORMULA :: { AtomicFormula Term }
 : FX_SYM "(" TERMS ")" { AtomicFormula (transSpan (fst $1) (span $4)) (snd $1) (reverse $3) }

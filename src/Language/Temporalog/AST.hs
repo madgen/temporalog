@@ -20,10 +20,10 @@ module Language.Temporalog.AST
   , pattern SDogru, pattern SDogruF
   , pattern SEX, pattern SEF, pattern SEG, pattern SEU
   , pattern SAX, pattern SAF, pattern SAG, pattern SAU
-  , pattern SHeadAt, pattern SBodyAt
+  , pattern SHeadJump, pattern SBodyJump
   , pattern SEXF, pattern SEFF, pattern SEGF, pattern SEUF
   , pattern SAXF, pattern SAFF, pattern SAGF, pattern SAUF
-  , pattern SHeadAtF, pattern SBodyAtF
+  , pattern SHeadJumpF, pattern SBodyJumpF
   , HOp(..), BOp(..), Temporal(..), AG.OpKind(..), AG.SomeOp(..)
   , AG.AtomicFormula(..)
   , AG.PredicateSymbol(..)
@@ -77,24 +77,24 @@ data Declaration = Declaration
 data Temporal = Temporal | ATemporal
 
 data BOp (switch :: Temporal) (k :: AG.OpKind) where
-  Negation    ::                                  BOp a    'AG.Unary
-  Conjunction ::                                  BOp a    'AG.Binary
-  Disjunction ::                                  BOp a    'AG.Binary
+  Negation      ::                                  BOp a    'AG.Unary
+  Conjunction   ::                                  BOp a    'AG.Binary
+  Disjunction   ::                                  BOp a    'AG.Binary
 
-  Dogru       ::                                  BOp a    'AG.Nullary
+  Dogru         ::                                  BOp a    'AG.Nullary
 
-  AX          ::                                  BOp 'Temporal 'AG.Unary
-  EX          ::                                  BOp 'Temporal 'AG.Unary
-  AG          ::                                  BOp 'Temporal 'AG.Unary
-  EG          ::                                  BOp 'Temporal 'AG.Unary
-  AF          ::                                  BOp 'Temporal 'AG.Unary
-  EF          ::                                  BOp 'Temporal 'AG.Unary
-  AU          ::                                  BOp 'Temporal 'AG.Binary
-  EU          ::                                  BOp 'Temporal 'AG.Binary
-  BodyAt      :: AG.PredicateSymbol -> AG.Term -> BOp 'Temporal 'AG.Unary
+  AX            ::                                  BOp 'Temporal 'AG.Unary
+  EX            ::                                  BOp 'Temporal 'AG.Unary
+  AG            ::                                  BOp 'Temporal 'AG.Unary
+  EG            ::                                  BOp 'Temporal 'AG.Unary
+  AF            ::                                  BOp 'Temporal 'AG.Unary
+  EF            ::                                  BOp 'Temporal 'AG.Unary
+  AU            ::                                  BOp 'Temporal 'AG.Binary
+  EU            ::                                  BOp 'Temporal 'AG.Binary
+  BodyJump      :: AG.PredicateSymbol -> AG.Term -> BOp 'Temporal 'AG.Unary
 
 data HOp (k :: AG.OpKind) where
-  HeadAt      :: AG.PredicateSymbol -> AG.Term -> HOp 'AG.Unary
+  HeadJump      :: AG.PredicateSymbol -> AG.Term -> HOp 'AG.Unary
 
 deriving instance Ord (HOp opKind)
 deriving instance Ord (BOp a opKind)
@@ -118,8 +118,8 @@ pattern SEF span child = AG.SUnOp span EF child
 pattern SAU span child1 child2 = AG.SBinOp span AU child1 child2
 pattern SEU span child1 child2 = AG.SBinOp span EU child1 child2
 
-pattern SHeadAt span child predSym time = AG.SUnOp span (HeadAt predSym time) child
-pattern SBodyAt span child predSym time = AG.SUnOp span (BodyAt predSym time) child
+pattern SHeadJump span child predSym time = AG.SUnOp span (HeadJump predSym time) child
+pattern SBodyJump span child predSym time = AG.SUnOp span (BodyJump predSym time) child
 
 pattern SAtomF span atom          = AG.SAtomF span atom
 pattern SNegF  span child         = AG.SUnOpF span Negation child
@@ -137,8 +137,8 @@ pattern SEFF span child = AG.SUnOpF span EF child
 pattern SAUF span child1 child2 = AG.SBinOpF span AU child1 child2
 pattern SEUF span child1 child2 = AG.SBinOpF span EU child1 child2
 
-pattern SHeadAtF span child predSym time = AG.SUnOpF span (HeadAt predSym time) child
-pattern SBodyAtF span child predSym time = AG.SUnOpF span (BodyAt predSym time) child
+pattern SHeadJumpF span child predSym time = AG.SUnOpF span (HeadJump predSym time) child
+pattern SBodyJumpF span child predSym time = AG.SUnOpF span (BodyJump predSym time) child
 
 -------------------------------------------------------------------------------
 -- Pretty printing related instances
@@ -157,11 +157,11 @@ instance HasPrecedence (BOp a) where
   precedence (AG.SomeOp Disjunction) = 3
   precedence (AG.SomeOp EU)          = 4
   precedence (AG.SomeOp AU)          = 4
-  precedence (AG.SomeOp BodyAt{})    = 5
+  precedence (AG.SomeOp BodyJump{})  = 5
 
 instance HasPrecedence HOp where
   precedence AG.NoOp              = 0
-  precedence (AG.SomeOp HeadAt{}) = 1
+  precedence (AG.SomeOp HeadJump{}) = 1
 
 instance Pretty (BOp a opKind) where
   pretty Dogru         = "TRUE"
@@ -176,10 +176,10 @@ instance Pretty (BOp a opKind) where
   pretty AF            = "AF "
   pretty AG            = "AG "
   pretty AU            = " AU "
-  pretty (BodyAt predSym time) = pretty predSym <+> pretty time <+> "@ "
+  pretty (BodyJump predSym time) = pretty predSym <+> pretty time <+> "@ "
 
 instance Pretty (HOp opKind) where
-  pretty (HeadAt predSym time) = pretty predSym <+> pretty time <+> "@ "
+  pretty (HeadJump predSym time) = pretty predSym <+> pretty time <+> "@ "
 
 instance Pretty Declaration where
   pretty (Declaration _ atom mTimes) =

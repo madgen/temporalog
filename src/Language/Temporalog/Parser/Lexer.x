@@ -82,10 +82,10 @@ token :-
 <scDA>     "bool" { basic TTTBool }
 <scDA>     "text" { basic TTTText }
 
-<scD>  "@"    { enterStartCodeAnd scDT $ basic TAt }
+<scD>  "@"    { enterStartCodeAnd scDT $ basic TJump }
 <scDT> @fxSym { exitStartCodeAnd $ useInput TFxSym }
 
-<scB> "@"     { enterStartCodeAnd scBT $ basic TAt }
+<scB> "@"     { enterStartCodeAnd scBT $ basic TJump }
 <scBT> true   { exitStartCodeAnd $ basic (TBool True) }
 <scBT> false  { exitStartCodeAnd $ basic (TBool False) }
 <scBT> @fxSym { useInput TFxSym }
@@ -123,7 +123,7 @@ data Token str =
   | TAG
   | TA
   | TU
-  | TAt
+  | TJump
   | TFxSym    { _tStr  :: str }
   | TVariable { _tStr  :: str }
   | TStr      { _tStr  :: str }
