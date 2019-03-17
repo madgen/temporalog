@@ -38,21 +38,20 @@ data Timing = Timing
 
 data PredicateInfo = PredicateInfo
   { _originalType   :: [ TermType ]
-  , _timings        :: Maybe [ Timing ]
+  , _timings        :: [ Timing ]
   }
 
 typ :: PredicateInfo -> [ TermType ]
-typ PredicateInfo{..} =
-  maybe _originalType (\ts -> _originalType <> map _type ts) _timings
+typ PredicateInfo{..} = _originalType <> map _type _timings
 
 arity :: PredicateInfo -> Int
 arity = length . typ
 
 hasTiming :: PredicateInfo -> Bool
-hasTiming PredicateInfo{..} = isJust _timings
+hasTiming PredicateInfo{..} = not . null $ _timings
 
-timingPreds :: PredicateInfo -> Maybe [ AG.PredicateSymbol ]
-timingPreds PredicateInfo{..} = fmap (\Timing{..} -> _predSym) <$> _timings
+timingPreds :: PredicateInfo -> [ AG.PredicateSymbol ]
+timingPreds PredicateInfo{..} = (\Timing{..} -> _predSym) <$> _timings
 
 type Metadata = M.Map AG.PredicateSymbol PredicateInfo
 
@@ -102,7 +101,7 @@ processMetadata program = do
     ( #_predSym _atomType
     , PredicateInfo
       { _originalType = _terms _atomType
-      , _timings      = Nothing
+      , _timings      = []
       }
     )
 
@@ -124,7 +123,7 @@ processMetadata program = do
     pure ( #_predSym _atomType
          , PredicateInfo
            { _originalType = _terms _atomType
-           , _timings      = Just $ uncurry Timing <$> zip tSyms typs
+           , _timings      = uncurry Timing <$> zip tSyms typs
            }
          )
 
@@ -189,7 +188,7 @@ instance Pretty (AG.PredicateSymbol, PredicateInfo) where
     pretty AtomicFormula{ _span = dummySpan
                         , _predSym = predSym
                         , _terms = _originalType } PP.<+>
-    maybe PP.empty (PP.vcat . prettyC) _timings
+    (PP.vcat . prettyC) _timings
 
 instance Pretty Timing where
   pretty Timing{..} =
