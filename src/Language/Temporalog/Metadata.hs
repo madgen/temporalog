@@ -38,7 +38,7 @@ data Timing = Timing
 
 data PredicateInfo = PredicateInfo
   { _originalType   :: [ TermType ]
-  , _timings        :: [ Timing ]
+  , _timings        :: [ Timing ] -- Ordered by predicate symbol
   }
 
 typ :: PredicateInfo -> [ TermType ]
@@ -123,7 +123,11 @@ processMetadata program = do
     pure ( #_predSym _atomType
          , PredicateInfo
            { _originalType = _terms _atomType
-           , _timings      = uncurry Timing <$> zip tSyms typs
+           , _timings      = uncurry Timing
+                         -- Make sure time predicates always appear in the
+                         -- same order.
+                         <$> sortBy (\a b -> fst a `compare` fst b)
+                                    (zip tSyms typs)
            }
          )
 
