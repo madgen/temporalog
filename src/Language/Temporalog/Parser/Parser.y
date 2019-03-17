@@ -87,7 +87,7 @@ CLAUSE :: { Sentence }
 
 HEAD :: { Subgoal HOp Term }
 : ATOMIC_FORMULA { SAtom   (span $1)      $1 }
-| HEAD "@" TERM  { SHeadAt (span ($1,$3)) $1 $3 }
+| HEAD "@" FX_SYM TERM  { SHeadAt (span ($1,$4)) $1 (snd $3) $4 }
 
 SUBGOAL :: { Subgoal (BOp 'Temporal) Term }
 : ATOMIC_FORMULA              { SAtom (span $1) $1 }
@@ -103,7 +103,7 @@ SUBGOAL :: { Subgoal (BOp 'Temporal) Term }
 | af SUBGOAL                  { SAF (span ($1,$2)) $2 }
 | ag SUBGOAL                  { SAG (span ($1,$2)) $2 }
 | a "[" SUBGOAL u SUBGOAL "]" { SAU (span ($1,$6)) $3 $5 }
-| SUBGOAL "@" TERM            { SBodyAt (span ($1,$3)) $1 $3 }
+| SUBGOAL "@" FX_SYM TERM     { SBodyAt (span ($1,$4)) $1 (snd $3) $4 }
 
 ATOMIC_FORMULA :: { AtomicFormula Term }
 : FX_SYM "(" TERMS ")" { AtomicFormula (transSpan (fst $1) (span $4)) (snd $1) (reverse $3) }

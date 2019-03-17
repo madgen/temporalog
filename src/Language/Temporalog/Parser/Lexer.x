@@ -88,6 +88,7 @@ token :-
 <scB> "@"     { enterStartCodeAnd scBT $ basic TAt }
 <scBT> true   { exitStartCodeAnd $ basic (TBool True) }
 <scBT> false  { exitStartCodeAnd $ basic (TBool False) }
+<scBT> @fxSym { useInput TFxSym }
 <scBT> @var   { exitStartCodeAnd $ useInput TVariable }
 <scBT> @int   { exitStartCodeAnd $ useInput (TInt . read . BS.unpack) }
 <scBT> \"     { exitStartCodeAnd $ enterStartCodeAnd str $ skip }

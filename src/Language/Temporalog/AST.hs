@@ -77,24 +77,24 @@ data Declaration = Declaration
 data Temporal = Temporal | ATemporal
 
 data BOp (switch :: Temporal) (k :: AG.OpKind) where
-  Negation    ::            BOp a    'AG.Unary
-  Conjunction ::            BOp a    'AG.Binary
-  Disjunction ::            BOp a    'AG.Binary
+  Negation    ::                                  BOp a    'AG.Unary
+  Conjunction ::                                  BOp a    'AG.Binary
+  Disjunction ::                                  BOp a    'AG.Binary
 
-  Dogru       ::            BOp a    'AG.Nullary
+  Dogru       ::                                  BOp a    'AG.Nullary
 
-  AX          ::            BOp 'Temporal 'AG.Unary
-  EX          ::            BOp 'Temporal 'AG.Unary
-  AG          ::            BOp 'Temporal 'AG.Unary
-  EG          ::            BOp 'Temporal 'AG.Unary
-  AF          ::            BOp 'Temporal 'AG.Unary
-  EF          ::            BOp 'Temporal 'AG.Unary
-  AU          ::            BOp 'Temporal 'AG.Binary
-  EU          ::            BOp 'Temporal 'AG.Binary
-  BodyAt      :: AG.Term -> BOp 'Temporal 'AG.Unary
+  AX          ::                                  BOp 'Temporal 'AG.Unary
+  EX          ::                                  BOp 'Temporal 'AG.Unary
+  AG          ::                                  BOp 'Temporal 'AG.Unary
+  EG          ::                                  BOp 'Temporal 'AG.Unary
+  AF          ::                                  BOp 'Temporal 'AG.Unary
+  EF          ::                                  BOp 'Temporal 'AG.Unary
+  AU          ::                                  BOp 'Temporal 'AG.Binary
+  EU          ::                                  BOp 'Temporal 'AG.Binary
+  BodyAt      :: AG.PredicateSymbol -> AG.Term -> BOp 'Temporal 'AG.Unary
 
 data HOp (k :: AG.OpKind) where
-  HeadAt      :: AG.Term -> HOp 'AG.Unary
+  HeadAt      :: AG.PredicateSymbol -> AG.Term -> HOp 'AG.Unary
 
 deriving instance Ord (HOp opKind)
 deriving instance Ord (BOp a opKind)
@@ -118,8 +118,8 @@ pattern SEF span child = AG.SUnOp span EF child
 pattern SAU span child1 child2 = AG.SBinOp span AU child1 child2
 pattern SEU span child1 child2 = AG.SBinOp span EU child1 child2
 
-pattern SHeadAt span child time = AG.SUnOp span (HeadAt time) child
-pattern SBodyAt span child time = AG.SUnOp span (BodyAt time) child
+pattern SHeadAt span child predSym time = AG.SUnOp span (HeadAt predSym time) child
+pattern SBodyAt span child predSym time = AG.SUnOp span (BodyAt predSym time) child
 
 pattern SAtomF span atom          = AG.SAtomF span atom
 pattern SNegF  span child         = AG.SUnOpF span Negation child
@@ -137,8 +137,8 @@ pattern SEFF span child = AG.SUnOpF span EF child
 pattern SAUF span child1 child2 = AG.SBinOpF span AU child1 child2
 pattern SEUF span child1 child2 = AG.SBinOpF span EU child1 child2
 
-pattern SHeadAtF span child time = AG.SUnOpF span (HeadAt time) child
-pattern SBodyAtF span child time = AG.SUnOpF span (BodyAt time) child
+pattern SHeadAtF span child predSym time = AG.SUnOpF span (HeadAt predSym time) child
+pattern SBodyAtF span child predSym time = AG.SUnOpF span (BodyAt predSym time) child
 
 -------------------------------------------------------------------------------
 -- Pretty printing related instances
@@ -176,10 +176,10 @@ instance Pretty (BOp a opKind) where
   pretty AF            = "AF "
   pretty AG            = "AG "
   pretty AU            = " AU "
-  pretty (BodyAt time) = pretty time <+> "@ "
+  pretty (BodyAt predSym time) = pretty predSym <+> pretty time <+> "@ "
 
 instance Pretty (HOp opKind) where
-  pretty (HeadAt time) = pretty time <+> "@ "
+  pretty (HeadAt predSym time) = pretty predSym <+> pretty time <+> "@ "
 
 instance Pretty Declaration where
   pretty (Declaration _ atom mTimes) =
