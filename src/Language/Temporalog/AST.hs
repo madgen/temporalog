@@ -20,10 +20,10 @@ module Language.Temporalog.AST
   , pattern SDogru, pattern SDogruF
   , pattern SEX, pattern SEF, pattern SEG, pattern SEU
   , pattern SAX, pattern SAF, pattern SAG, pattern SAU
-  , pattern SHeadJump, pattern SBodyJump
+  , pattern SHeadJump, pattern SBodyJump, pattern SBind
   , pattern SEXF, pattern SEFF, pattern SEGF, pattern SEUF
   , pattern SAXF, pattern SAFF, pattern SAGF, pattern SAUF
-  , pattern SHeadJumpF, pattern SBodyJumpF
+  , pattern SHeadJumpF, pattern SBodyJumpF, pattern SBindF
   , HOp(..), BOp(..), Temporal(..), AG.OpKind(..), AG.SomeOp(..)
   , AG.AtomicFormula(..)
   , AG.PredicateSymbol(..)
@@ -91,6 +91,7 @@ data BOp (switch :: Temporal) (k :: AG.OpKind) where
   EF            ::                                  BOp 'Temporal 'AG.Unary
   AU            ::                                  BOp 'Temporal 'AG.Binary
   EU            ::                                  BOp 'Temporal 'AG.Binary
+  Bind          :: AG.PredicateSymbol -> AG.Var  -> BOp 'Temporal 'AG.Unary
   BodyJump      :: AG.PredicateSymbol -> AG.Term -> BOp 'Temporal 'AG.Unary
 
 data HOp (k :: AG.OpKind) where
@@ -118,6 +119,7 @@ pattern SEF span child = AG.SUnOp span EF child
 pattern SAU span child1 child2 = AG.SBinOp span AU child1 child2
 pattern SEU span child1 child2 = AG.SBinOp span EU child1 child2
 
+pattern SBind     span predSym var child  = AG.SUnOp span (Bind     predSym var) child
 pattern SHeadJump span child predSym time = AG.SUnOp span (HeadJump predSym time) child
 pattern SBodyJump span child predSym time = AG.SUnOp span (BodyJump predSym time) child
 
@@ -137,6 +139,7 @@ pattern SEFF span child = AG.SUnOpF span EF child
 pattern SAUF span child1 child2 = AG.SBinOpF span AU child1 child2
 pattern SEUF span child1 child2 = AG.SBinOpF span EU child1 child2
 
+pattern SBindF     span predSym var child  = AG.SUnOpF span (Bind     predSym var) child
 pattern SHeadJumpF span child predSym time = AG.SUnOpF span (HeadJump predSym time) child
 pattern SBodyJumpF span child predSym time = AG.SUnOpF span (BodyJump predSym time) child
 
@@ -157,10 +160,11 @@ instance HasPrecedence (BOp a) where
   precedence (AG.SomeOp Disjunction) = 3
   precedence (AG.SomeOp EU)          = 4
   precedence (AG.SomeOp AU)          = 4
-  precedence (AG.SomeOp BodyJump{})  = 5
+  precedence (AG.SomeOp Bind{})      = 5
+  precedence (AG.SomeOp BodyJump{})  = 6
 
 instance HasPrecedence HOp where
-  precedence AG.NoOp              = 0
+  precedence AG.NoOp                = 0
   precedence (AG.SomeOp HeadJump{}) = 1
 
 instance Pretty (BOp a opKind) where
@@ -176,6 +180,7 @@ instance Pretty (BOp a opKind) where
   pretty AF            = "AF "
   pretty AG            = "AG "
   pretty AU            = " AU "
+  pretty (Bind predSym var)      = pretty predSym <+> pretty var  <+> "| "
   pretty (BodyJump predSym time) = pretty predSym <+> pretty time <+> "@ "
 
 instance Pretty (HOp opKind) where

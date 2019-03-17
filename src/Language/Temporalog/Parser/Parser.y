@@ -52,6 +52,7 @@ import Language.Temporalog.Parser.Lexer (Token(..), lex)
   a        { L.Lexeme{L._token = TA} }
   u        { L.Lexeme{L._token = TU} }
   "@"      { L.Lexeme{L._token = TJump} }
+  "|"      { L.Lexeme{L._token = TBind} }
 
   fxSym    { L.Lexeme{L._token = TFxSym{}} }
   var      { L.Lexeme{L._token = TVariable{}} }
@@ -61,6 +62,7 @@ import Language.Temporalog.Parser.Lexer (Token(..), lex)
   eof      { L.Lexeme{L._token = TEOF} }
 
 %right "@"
+%left "|"
 %left u
 %left disj
 %left conj
@@ -104,6 +106,7 @@ SUBGOAL :: { Subgoal (BOp 'Temporal) Term }
 | ag SUBGOAL                  { SAG (span ($1,$2)) $2 }
 | a "[" SUBGOAL u SUBGOAL "]" { SAU (span ($1,$6)) $3 $5 }
 | SUBGOAL "@" FX_SYM TERM     { SBodyJump (span ($1,$4)) $1 (snd $3) $4 }
+| "|" FX_SYM VAR SUBGOAL      { SBind     (span ($1,$4)) (snd $2) $3 $4 }
 
 ATOMIC_FORMULA :: { AtomicFormula Term }
 : FX_SYM "(" TERMS ")" { AtomicFormula (transSpan (fst $1) (span $4)) (snd $1) (reverse $3) }

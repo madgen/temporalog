@@ -13,3 +13,6 @@ r(true,Y) @ t2 1 :- q(Y).
 
 .decl p(int) @ t.
 p(X) :- q(24), AG (p(42) @ t 0), E[ p(X) U q(Y); r(Z,X) ].
+
+.decl s(int) @ t.
+s(X) :- | t Y p(X).

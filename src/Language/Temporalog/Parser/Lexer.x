@@ -29,7 +29,8 @@ import Debug.Trace
 
 -- Start codes
 -- scB  = Body
--- scBT = Body time
+-- scBJ = Body jump
+-- scBB = Body bind
 -- scD  = Declaration
 -- scDT = Declaration time
 -- scA  = Atom
@@ -37,8 +38,8 @@ import Debug.Trace
 -- str  = String
 token :-
 
-<0,scB,scBT,scA,scDA,scD,scDT> $white+  ;
-<0>                            "%".*    ;
+<0,scB,scBB,scBJ,scA,scDA,scD,scDT> $white+  ;
+<0>                                 "%".*    ;
 
 <0,scB>    "("  { basic TLeftPar }
 <0,scB>    ")"  { basic TRightPar }
@@ -85,13 +86,17 @@ token :-
 <scD>  "@"    { enterStartCodeAnd scDT $ basic TJump }
 <scDT> @fxSym { exitStartCodeAnd $ useInput TFxSym }
 
-<scB> "@"     { enterStartCodeAnd scBT $ basic TJump }
-<scBT> true   { exitStartCodeAnd $ basic (TBool True) }
-<scBT> false  { exitStartCodeAnd $ basic (TBool False) }
-<scBT> @fxSym { useInput TFxSym }
-<scBT> @var   { exitStartCodeAnd $ useInput TVariable }
-<scBT> @int   { exitStartCodeAnd $ useInput (TInt . read . BS.unpack) }
-<scBT> \"     { exitStartCodeAnd $ enterStartCodeAnd str $ skip }
+<scB> "|"     { enterStartCodeAnd scBB $ basic TBind }
+<scBB> @fxSym { useInput TFxSym }
+<scBB> @var   { exitStartCodeAnd $ useInput TVariable }
+
+<scB> "@"     { enterStartCodeAnd scBJ $ basic TJump }
+<scBJ> true   { exitStartCodeAnd $ basic (TBool True) }
+<scBJ> false  { exitStartCodeAnd $ basic (TBool False) }
+<scBJ> @fxSym { useInput TFxSym }
+<scBJ> @var   { exitStartCodeAnd $ useInput TVariable }
+<scBJ> @int   { exitStartCodeAnd $ useInput (TInt . read . BS.unpack) }
+<scBJ> \"     { exitStartCodeAnd $ enterStartCodeAnd str $ skip }
 
 <scA> \"     { enterStartCodeAnd str $ skip }
 <str> [^\"]+ { useInput TStr }
@@ -124,6 +129,7 @@ data Token str =
   | TA
   | TU
   | TJump
+  | TBind
   | TFxSym    { _tStr  :: str }
   | TVariable { _tStr  :: str }
   | TStr      { _tStr  :: str }
