@@ -11,7 +11,7 @@ module Language.Temporalog.Metadata
   , lookupM
   , typ
   , arity
-  , timingPred
+  , timingPreds
   , hasTiming
   ) where
 
@@ -38,21 +38,21 @@ data Timing = Timing
 
 data PredicateInfo = PredicateInfo
   { _originalType   :: [ TermType ]
-  , _timing         :: Maybe Timing
+  , _timings        :: Maybe [ Timing ]
   }
 
 typ :: PredicateInfo -> [ TermType ]
 typ PredicateInfo{..} =
-  maybe _originalType (\Timing{..} -> _originalType <> [ _type ]) _timing
+  maybe _originalType (\ts -> _originalType <> map _type ts) _timings
 
 arity :: PredicateInfo -> Int
 arity = length . typ
 
 hasTiming :: PredicateInfo -> Bool
-hasTiming PredicateInfo{..} = isJust _timing
+hasTiming PredicateInfo{..} = isJust _timings
 
-timingPred :: PredicateInfo -> Maybe AG.PredicateSymbol
-timingPred PredicateInfo{..} = (\Timing{..} -> _predSym) <$> _timing
+timingPreds :: PredicateInfo -> Maybe [ AG.PredicateSymbol ]
+timingPreds PredicateInfo{..} = fmap (\Timing{..} -> _predSym) <$> _timings
 
 type Metadata = M.Map AG.PredicateSymbol PredicateInfo
 
@@ -80,13 +80,13 @@ processMetadata program = do
 
   declarationExistenceCheck sentences decls
 
-  let (temporalDecls, aTemporalDecls) = partition (isJust . _timePredSym) decls
+  let (temporalDecls, aTemporalDecls) = partition (isJust . _timePredSyms) decls
 
-  timePreds <- (`traverse` temporalDecls) $ \Declaration{..} -> maybe
+  timePreds <- fmap join . (`traverse` temporalDecls) $ \Declaration{..} -> maybe
     (Log.scream (Just _span)
                 "Time predicate doesn't exist in a temporal declaration.")
     pure
-    _timePredSym
+    _timePredSyms
 
   let (timingDecls, deductiveDecls) =
         partition ((`elem` timePreds) . #_predSym . _atomType) aTemporalDecls
@@ -102,29 +102,29 @@ processMetadata program = do
     ( #_predSym _atomType
     , PredicateInfo
       { _originalType = _terms _atomType
-      , _timing       = Nothing
+      , _timings      = Nothing
       }
     )
 
   processTemporal :: Metadata
                   -> Declaration
                   -> Log.LoggerM (AG.PredicateSymbol, PredicateInfo)
-  processTemporal timingMap Declaration{..} = do
-    tSym <- maybe (Log.scream Nothing "Processing an atemporal predicate.") pure
-      _timePredSym
+  processTemporal metadata Declaration{..} = do
+    tSyms <- maybe (Log.scream Nothing "Processing an atemporal predicate.") pure
+      _timePredSyms
 
-    metadata <- maybe (Log.scream Nothing "Existence check is flawed.") pure $
-      tSym `M.lookup` timingMap
+    predInfos <- maybe (Log.scream Nothing "Existence check is flawed.") pure $
+      sequence $ (`M.lookup` metadata) <$> tSyms
 
-    typ <- maybe
+    typs <- maybe
       (Log.scream Nothing "Timing sanity checking is flawed. Zero arity." )
-      pure
-      (head . _originalType $ metadata)
+      pure $
+      sequence $ head . _originalType <$> predInfos
 
     pure ( #_predSym _atomType
          , PredicateInfo
            { _originalType = _terms _atomType
-           , _timing       = Just $ Timing { _predSym = tSym, _type = typ }
+           , _timings      = Just $ uncurry Timing <$> zip tSyms typs
            }
          )
 
@@ -151,7 +151,7 @@ sentenceExistenceCheck sentences decls = forM_ decls $ \Declaration{..} -> do
   let declaredPredSym = #_predSym _atomType
   checkExistence _span declaredPredSym
 
-  maybe (pure ()) (checkExistence _span) _timePredSym
+  maybe (pure ()) (mapM_ (checkExistence _span)) _timePredSyms
   where
   checkExistence span pred =
     unless (pred `elem` predsBeingDefined) $
@@ -189,7 +189,8 @@ instance Pretty (AG.PredicateSymbol, PredicateInfo) where
     pretty AtomicFormula{ _span = dummySpan
                         , _predSym = predSym
                         , _terms = _originalType } PP.<+>
-    case _timing of
-      Just Timing{..} ->
-        "@" PP.<+> pretty _predSym PP.<+> "with" PP.<+> pretty _type
-      Nothing -> PP.empty
+    maybe PP.empty (PP.vcat . prettyC) _timings
+
+instance Pretty Timing where
+  pretty Timing{..} =
+    "@" PP.<+> pretty _predSym PP.<+> "with" PP.<+> pretty _type

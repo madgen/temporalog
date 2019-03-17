@@ -42,9 +42,9 @@ import qualified Data.List.NonEmpty as NE
 
 import qualified Language.Exalog.Core as E
 
-import Text.PrettyPrint ((<+>), (<>), int, empty)
+import Text.PrettyPrint ((<+>), (<>), int, empty, punctuate, hcat)
 
-import           Language.Exalog.Pretty.Helper ((<+?>))
+import           Language.Exalog.Pretty.Helper ((<+?>), prettyC)
 
 import qualified Language.Vanillalog.Generic.AST as AG
 import           Language.Vanillalog.Generic.Compiler (ClosureCompilable(..), Closure(..))
@@ -71,7 +71,7 @@ type Subgoal = AG.Subgoal
 data Declaration = Declaration
   { _span :: SrcSpan
   , _atomType :: AG.AtomicFormula AG.TermType
-  , _timePredSym :: Maybe AG.PredicateSymbol
+  , _timePredSyms :: Maybe [ AG.PredicateSymbol ]
   }
 
 data Temporal = Temporal | ATemporal
@@ -182,5 +182,5 @@ instance Pretty (HOp opKind) where
   pretty (HeadAt time) = pretty time <+> "@ "
 
 instance Pretty Declaration where
-  pretty (Declaration _ atom mTime) =
-    "decl" <+> pretty atom <+> "@" <+?> maybe empty pretty mTime <> "."
+  pretty (Declaration _ atom mTimes) =
+    "decl" <+> pretty atom <+> "@" <+?> maybe empty (hcat . punctuate "," . prettyC) mTimes <> "."

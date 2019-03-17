@@ -77,8 +77,8 @@ CLAUSES :: { [ Statement ] }
 |                     { [] }
 
 DECLARATION :: { Declaration }
-: decl ATOM_TYPE "."            { Declaration (span ($1,$3)) $2 Nothing }
-| decl ATOM_TYPE "@" FX_SYM "." { Declaration (span ($1,$5)) $2 (Just $ snd $4) }
+: decl ATOM_TYPE "."             { Declaration (span ($1,$3)) $2 Nothing }
+| decl ATOM_TYPE "@" FX_SYMS "." { Declaration (span ($1,$5)) $2 (Just $ map snd . reverse $ $4) }
 
 CLAUSE :: { Sentence }
 : HEAD ":-" SUBGOAL "." { G.SClause $ G.Clause (span ($1,$4)) $1 $3 }
@@ -112,6 +112,10 @@ ATOMIC_FORMULA :: { AtomicFormula Term }
 ATOM_TYPE :: { AtomicFormula TermType }
 : FX_SYM "(" TYPES ")" { AtomicFormula (transSpan (fst $1) (span $4)) (snd $1) (reverse $3) }
 | FX_SYM               { AtomicFormula (fst $1)                       (snd $1) [] }
+
+FX_SYMS :: { [ (SrcSpan, G.PredicateSymbol) ] }
+: FX_SYMS FX_SYM { $2 : $1 }
+| FX_SYM         { [ $1 ] }
 
 FX_SYM :: { (SrcSpan, G.PredicateSymbol) }
 : fxSym { (span $1, G.PredicateSymbol . pure . _tStr . L._token $ $1) }
