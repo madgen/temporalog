@@ -89,7 +89,7 @@ HEAD :: { Subgoal HOp Term }
 : ATOMIC_FORMULA { SAtom   (span $1)      $1 }
 | HEAD "@" TERM  { SHeadAt (span ($1,$3)) $1 $3 }
 
-SUBGOAL :: { Subgoal (BOp AtOn) Term }
+SUBGOAL :: { Subgoal (BOp 'Temporal) Term }
 : ATOMIC_FORMULA              { SAtom (span $1) $1 }
 | neg SUBGOAL                 { SNeg (span ($1,$2)) $2 }
 | "(" SUBGOAL ")"             { $2 }

@@ -8,27 +8,25 @@ import Protolude
 import Data.List (lookup)
 import Data.Text (pack)
 
+import qualified Language.Vanillalog.AST as A
 import           Language.Vanillalog.Generic.Transformation.Util (transformM)
-import qualified Language.Vanillalog.Generic.AST as AG
+import           Language.Vanillalog.Generic.AST
 import qualified Language.Vanillalog.Generic.Logger as Log
 import           Language.Vanillalog.Generic.Pretty (pp)
 import           Language.Vanillalog.Generic.Parser.SrcLoc (span)
 
-import           Language.Temporalog.AST
 import qualified Language.Temporalog.Metadata as MD
 
 type LocalTypeEnvironment  = [ (Var, TermType) ]
 
-typeCheck :: MD.Metadata
-          -> AG.Program Void (Const Void) (BOp AtOff)
-          -> Log.LoggerM ()
+typeCheck :: MD.Metadata -> A.Program -> Log.LoggerM ()
 typeCheck metadata program = void
                           $ transformM (\s -> check (collect s) $> s) program
   where
-  collect :: AG.Sentence (Const Void) (BOp AtOff) -> [ AtomicFormula Term ]
-  collect (AG.SFact   AG.Fact{..})   = AG.atoms _head
-  collect (AG.SQuery  AG.Query{..})  = (fmap TVar <$> maybe [] AG.atoms _head) ++ AG.atoms _body
-  collect (AG.SClause AG.Clause{..}) = AG.atoms _head                          ++ AG.atoms _body
+  collect :: A.Sentence -> [ AtomicFormula Term ]
+  collect (SFact   Fact{..})   = atoms _head
+  collect (SQuery  Query{..})  = (fmap TVar <$> maybe [] atoms _head) ++ atoms _body
+  collect (SClause Clause{..}) = atoms _head                          ++ atoms _body
 
   check :: [ AtomicFormula Term ] -> Log.LoggerM ()
   check = void . foldrM yakk [] . reverse
@@ -70,9 +68,9 @@ add (var, tt) env =
 unify :: [ Term ] -> [ TermType ] -> Log.LoggerM LocalTypeEnvironment
 unify terms types = catMaybes <$> traverse go (zip terms types)
   where
-  go (AG.TVar var@AG.Var{}, tt) = pure $ Just (var, tt)
-  go (AG.TSym sym, tt)
-    | tt' <- AG.termType sym =
+  go (TVar var@Var{}, tt) = pure $ Just (var, tt)
+  go (TSym sym, tt)
+    | tt' <- termType sym =
       if tt == tt'
         then pure Nothing
         else Log.scold (Just . span $ sym) $

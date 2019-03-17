@@ -17,13 +17,14 @@ module Language.Temporalog.AST
   , Subgoal
   , pattern SAtom, pattern SNeg, pattern SConj, pattern SDisj
   , pattern SAtomF, pattern SNegF, pattern SConjF, pattern SDisjF
+  , pattern SDogru, pattern SDogruF
   , pattern SEX, pattern SEF, pattern SEG, pattern SEU
   , pattern SAX, pattern SAF, pattern SAG, pattern SAU
   , pattern SHeadAt, pattern SBodyAt
   , pattern SEXF, pattern SEFF, pattern SEGF, pattern SEUF
   , pattern SAXF, pattern SAFF, pattern SAGF, pattern SAUF
   , pattern SHeadAtF, pattern SBodyAtF
-  , HOp(..), BOp(..), AtSwitch(..), AG.OpKind(..), AG.SomeOp(..)
+  , HOp(..), BOp(..), Temporal(..), AG.OpKind(..), AG.SomeOp(..)
   , AG.AtomicFormula(..)
   , AG.PredicateSymbol(..)
   , AG.Term(..)
@@ -53,15 +54,15 @@ import           Language.Vanillalog.Generic.Pretty ( Pretty(..)
                                                     , HasPrecedence(..)
                                                     )
 
-type Program = AG.Program Declaration HOp (BOp AtOn)
+type Program = AG.Program Declaration HOp (BOp 'Temporal)
 
-type Statement = AG.Statement Declaration HOp (BOp AtOn)
+type Statement = AG.Statement Declaration HOp (BOp 'Temporal)
 
-type Sentence = AG.Sentence HOp (BOp AtOn)
+type Sentence = AG.Sentence HOp (BOp 'Temporal)
 
-type Query = AG.Query HOp (BOp AtOn)
+type Query = AG.Query HOp (BOp 'Temporal)
 
-type Clause = AG.Clause HOp (BOp AtOn)
+type Clause = AG.Clause HOp (BOp 'Temporal)
 
 type Fact = AG.Fact HOp
 
@@ -73,24 +74,24 @@ data Declaration = Declaration
   , _timePredSym :: Maybe AG.PredicateSymbol
   }
 
-data AtSwitch = AtOn | AtOff
+data Temporal = Temporal | ATemporal
 
-data BOp (switch :: AtSwitch) (k :: AG.OpKind) where
+data BOp (switch :: Temporal) (k :: AG.OpKind) where
   Negation    ::            BOp a    'AG.Unary
   Conjunction ::            BOp a    'AG.Binary
   Disjunction ::            BOp a    'AG.Binary
 
   Dogru       ::            BOp a    'AG.Nullary
 
-  AX          ::            BOp a    'AG.Unary
-  EX          ::            BOp a    'AG.Unary
-  AG          ::            BOp a    'AG.Unary
-  EG          ::            BOp a    'AG.Unary
-  AF          ::            BOp a    'AG.Unary
-  EF          ::            BOp a    'AG.Unary
-  AU          ::            BOp a    'AG.Binary
-  EU          ::            BOp a    'AG.Binary
-  BodyAt      :: AG.Term -> BOp AtOn 'AG.Unary
+  AX          ::            BOp 'Temporal 'AG.Unary
+  EX          ::            BOp 'Temporal 'AG.Unary
+  AG          ::            BOp 'Temporal 'AG.Unary
+  EG          ::            BOp 'Temporal 'AG.Unary
+  AF          ::            BOp 'Temporal 'AG.Unary
+  EF          ::            BOp 'Temporal 'AG.Unary
+  AU          ::            BOp 'Temporal 'AG.Binary
+  EU          ::            BOp 'Temporal 'AG.Binary
+  BodyAt      :: AG.Term -> BOp 'Temporal 'AG.Unary
 
 data HOp (k :: AG.OpKind) where
   HeadAt      :: AG.Term -> HOp 'AG.Unary
@@ -105,6 +106,8 @@ pattern SAtom span atom      = AG.SAtom span atom
 pattern SNeg  span sub       = AG.SUnOp span Negation sub
 pattern SConj span sub1 sub2 = AG.SBinOp span Conjunction sub1 sub2
 pattern SDisj span sub1 sub2 = AG.SBinOp span Disjunction sub1 sub2
+
+pattern SDogru span = AG.SNullOp span Dogru
 
 pattern SAX span child = AG.SUnOp span AX child
 pattern SEX span child = AG.SUnOp span EX child
@@ -122,6 +125,8 @@ pattern SAtomF span atom          = AG.SAtomF span atom
 pattern SNegF  span child         = AG.SUnOpF span Negation child
 pattern SConjF span child1 child2 = AG.SBinOpF span Conjunction child1 child2
 pattern SDisjF span child1 child2 = AG.SBinOpF span Disjunction child1 child2
+
+pattern SDogruF span = AG.SNullOpF span Dogru
 
 pattern SAXF span child = AG.SUnOpF span AX child
 pattern SEXF span child = AG.SUnOpF span EX child

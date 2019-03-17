@@ -5,8 +5,6 @@ module Language.Temporalog.Stage
   , parse
   , metadata
   , noDeclaration
-  , timeParameter
-  , atRemoved
   , typeChecked
   , namedQueries
   , noTemporal
@@ -36,8 +34,6 @@ import qualified Language.Temporalog.Parser.Lexer as Lexer
 import qualified Language.Temporalog.Parser.Parser as Parser
 import           Language.Temporalog.Transformation.Declaration (removeDecls)
 import           Language.Temporalog.Transformation.Temporal.CTL (eliminateTemporal)
-import           Language.Temporalog.Transformation.Temporal.Hybrid (eliminateAt)
-import           Language.Temporalog.Transformation.Temporal.Parameter (extendParameters)
 import           Language.Temporalog.TypeChecker (typeCheck)
 
 type Stage a = FilePath -> BS.ByteString -> Log.LoggerM a
@@ -54,46 +50,35 @@ metadata file bs = do
   meta <- MD.processMetadata ast
   pure (meta, ast)
 
-noDeclaration :: Stage (MD.Metadata, AG.Program Void HOp (BOp AtOn))
+noDeclaration :: Stage (MD.Metadata, AG.Program Void HOp (BOp 'Temporal))
 noDeclaration file bs = second removeDecls <$> metadata file bs
 
-timeParameter :: Stage (MD.Metadata, AG.Program Void HOp (BOp AtOn))
-timeParameter file bs = do
-  (meta, ast) <- noDeclaration file bs
-  ast' <- extendParameters meta ast
+noTemporal :: Stage (MD.Metadata, AG.Program Void (Const Void) (BOp 'ATemporal))
+noTemporal file bs = do
+  res@(meta, ast) <- noDeclaration file bs
+  ast' <- uncurry eliminateTemporal res
   pure (meta, ast')
 
-atRemoved :: Stage (MD.Metadata, AG.Program Void (Const Void) (BOp AtOff))
-atRemoved file bs = do
-  (meta, ast) <- timeParameter file bs
-  ast' <- eliminateAt meta ast
-  pure (meta, ast')
+removeTemporal :: Stage (MD.Metadata, VA.Program)
+removeTemporal = _
 
-rangeRestricted :: Stage (MD.Metadata, AG.Program Void (Const Void) (BOp AtOff))
+rangeRestricted :: Stage (MD.Metadata, VA.Program)
 rangeRestricted file bs = do
-  res@(meta, ast) <- atRemoved file bs
+  res@(meta, ast) <- removeTemporal file bs
   checkRangeRestriction ast
   pure res
 
-typeChecked :: Stage (MD.Metadata, AG.Program Void (Const Void) (BOp AtOff))
+typeChecked :: Stage VA.Program
 typeChecked file bs = do
-  res <- rangeRestricted file bs
+  res@(meta, ast) <- rangeRestricted file bs
   uncurry typeCheck res
-  pure res
+  pure ast
 
-namedQueries :: Stage (MD.Metadata, AG.Program Void (Const Void) (BOp AtOff))
-namedQueries file bs = do
-  (meta, ast) <- typeChecked file bs
-  ast' <- nameQueries ast
-  pure (meta, ast')
-
-noTemporal :: Stage VA.Program
-noTemporal file bs = do
-  (meta, ast) <- namedQueries file bs
-  eliminateTemporal ast
+namedQueries :: Stage VA.Program
+namedQueries file = typeChecked file >=> nameQueries
 
 normalised :: Stage VA.Program
-normalised file = noTemporal file >=> normalise
+normalised file = namedQueries file >=> normalise
 
 compiled :: Stage (E.Program 'E.ABase, R.Solution 'E.ABase)
 compiled file = normalised file >=> compile
