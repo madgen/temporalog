@@ -83,14 +83,14 @@ data BOp (switch :: Temporal) (k :: AG.OpKind) where
 
   Dogru         ::                                  BOp a    'AG.Nullary
 
-  AX            ::                                  BOp 'Temporal 'AG.Unary
-  EX            ::                                  BOp 'Temporal 'AG.Unary
-  AG            ::                                  BOp 'Temporal 'AG.Unary
-  EG            ::                                  BOp 'Temporal 'AG.Unary
-  AF            ::                                  BOp 'Temporal 'AG.Unary
-  EF            ::                                  BOp 'Temporal 'AG.Unary
-  AU            ::                                  BOp 'Temporal 'AG.Binary
-  EU            ::                                  BOp 'Temporal 'AG.Binary
+  AX            :: AG.PredicateSymbol ->            BOp 'Temporal 'AG.Unary
+  EX            :: AG.PredicateSymbol ->            BOp 'Temporal 'AG.Unary
+  AG            :: AG.PredicateSymbol ->            BOp 'Temporal 'AG.Unary
+  EG            :: AG.PredicateSymbol ->            BOp 'Temporal 'AG.Unary
+  AF            :: AG.PredicateSymbol ->            BOp 'Temporal 'AG.Unary
+  EF            :: AG.PredicateSymbol ->            BOp 'Temporal 'AG.Unary
+  AU            :: AG.PredicateSymbol ->            BOp 'Temporal 'AG.Binary
+  EU            :: AG.PredicateSymbol ->            BOp 'Temporal 'AG.Binary
   Bind          :: AG.PredicateSymbol -> AG.Var  -> BOp 'Temporal 'AG.Unary
   BodyJump      :: AG.PredicateSymbol -> AG.Term -> BOp 'Temporal 'AG.Unary
 
@@ -110,18 +110,18 @@ pattern SDisj span sub1 sub2 = AG.SBinOp span Disjunction sub1 sub2
 
 pattern SDogru span = AG.SNullOp span Dogru
 
-pattern SAX span child = AG.SUnOp span AX child
-pattern SEX span child = AG.SUnOp span EX child
-pattern SAG span child = AG.SUnOp span AG child
-pattern SEG span child = AG.SUnOp span EG child
-pattern SAF span child = AG.SUnOp span AF child
-pattern SEF span child = AG.SUnOp span EF child
-pattern SAU span child1 child2 = AG.SBinOp span AU child1 child2
-pattern SEU span child1 child2 = AG.SBinOp span EU child1 child2
+pattern SAX span timePredSym child = AG.SUnOp span (AX timePredSym) child
+pattern SEX span timePredSym child = AG.SUnOp span (EX timePredSym) child
+pattern SAG span timePredSym child = AG.SUnOp span (AG timePredSym) child
+pattern SEG span timePredSym child = AG.SUnOp span (EG timePredSym) child
+pattern SAF span timePredSym child = AG.SUnOp span (AF timePredSym) child
+pattern SEF span timePredSym child = AG.SUnOp span (EF timePredSym) child
+pattern SAU span timePredSym child1 child2 = AG.SBinOp span (AU timePredSym) child1 child2
+pattern SEU span timePredSym child1 child2 = AG.SBinOp span (EU timePredSym) child1 child2
 
-pattern SBind     span predSym var child  = AG.SUnOp span (Bind     predSym var) child
-pattern SHeadJump span child predSym time = AG.SUnOp span (HeadJump predSym time) child
-pattern SBodyJump span child predSym time = AG.SUnOp span (BodyJump predSym time) child
+pattern SBind     span timePredSym var child  = AG.SUnOp span (Bind     timePredSym var) child
+pattern SHeadJump span child timePredSym time = AG.SUnOp span (HeadJump timePredSym time) child
+pattern SBodyJump span child timePredSym time = AG.SUnOp span (BodyJump timePredSym time) child
 
 pattern SAtomF span atom          = AG.SAtomF span atom
 pattern SNegF  span child         = AG.SUnOpF span Negation child
@@ -130,18 +130,18 @@ pattern SDisjF span child1 child2 = AG.SBinOpF span Disjunction child1 child2
 
 pattern SDogruF span = AG.SNullOpF span Dogru
 
-pattern SAXF span child = AG.SUnOpF span AX child
-pattern SEXF span child = AG.SUnOpF span EX child
-pattern SAGF span child = AG.SUnOpF span AG child
-pattern SEGF span child = AG.SUnOpF span EG child
-pattern SAFF span child = AG.SUnOpF span AF child
-pattern SEFF span child = AG.SUnOpF span EF child
-pattern SAUF span child1 child2 = AG.SBinOpF span AU child1 child2
-pattern SEUF span child1 child2 = AG.SBinOpF span EU child1 child2
+pattern SAXF span timePredSym child = AG.SUnOpF span (AX timePredSym) child
+pattern SEXF span timePredSym child = AG.SUnOpF span (EX timePredSym) child
+pattern SAGF span timePredSym child = AG.SUnOpF span (AG timePredSym) child
+pattern SEGF span timePredSym child = AG.SUnOpF span (EG timePredSym) child
+pattern SAFF span timePredSym child = AG.SUnOpF span (AF timePredSym) child
+pattern SEFF span timePredSym child = AG.SUnOpF span (EF timePredSym) child
+pattern SAUF span timePredSym child1 child2 = AG.SBinOpF span (AU timePredSym) child1 child2
+pattern SEUF span timePredSym child1 child2 = AG.SBinOpF span (EU timePredSym) child1 child2
 
-pattern SBindF     span predSym var child  = AG.SUnOpF span (Bind     predSym var) child
-pattern SHeadJumpF span child predSym time = AG.SUnOpF span (HeadJump predSym time) child
-pattern SBodyJumpF span child predSym time = AG.SUnOpF span (BodyJump predSym time) child
+pattern SBindF     span timePredSym var child  = AG.SUnOpF span (Bind     timePredSym var) child
+pattern SHeadJumpF span child timePredSym time = AG.SUnOpF span (HeadJump timePredSym time) child
+pattern SBodyJumpF span child timePredSym time = AG.SUnOpF span (BodyJump timePredSym time) child
 
 -------------------------------------------------------------------------------
 -- Pretty printing related instances
@@ -150,16 +150,16 @@ pattern SBodyJumpF span child predSym time = AG.SUnOpF span (BodyJump predSym ti
 instance HasPrecedence (BOp a) where
   precedence AG.NoOp                 = 0
   precedence (AG.SomeOp Negation)    = 1
-  precedence (AG.SomeOp EX)          = 1
-  precedence (AG.SomeOp EF)          = 1
-  precedence (AG.SomeOp EG)          = 1
-  precedence (AG.SomeOp AX)          = 1
-  precedence (AG.SomeOp AF)          = 1
-  precedence (AG.SomeOp AG)          = 1
+  precedence (AG.SomeOp EX{})        = 1
+  precedence (AG.SomeOp EF{})        = 1
+  precedence (AG.SomeOp EG{})        = 1
+  precedence (AG.SomeOp AX{})        = 1
+  precedence (AG.SomeOp AF{})        = 1
+  precedence (AG.SomeOp AG{})        = 1
   precedence (AG.SomeOp Conjunction) = 2
   precedence (AG.SomeOp Disjunction) = 3
-  precedence (AG.SomeOp EU)          = 4
-  precedence (AG.SomeOp AU)          = 4
+  precedence (AG.SomeOp EU{})        = 4
+  precedence (AG.SomeOp AU{})        = 4
   precedence (AG.SomeOp Bind{})      = 5
   precedence (AG.SomeOp BodyJump{})  = 6
 
@@ -168,23 +168,23 @@ instance HasPrecedence HOp where
   precedence (AG.SomeOp HeadJump{}) = 1
 
 instance Pretty (BOp a opKind) where
-  pretty Dogru         = "TRUE"
-  pretty Negation      = "!"
-  pretty Conjunction   = ", "
-  pretty Disjunction   = "; "
-  pretty EX            = "EX "
-  pretty EF            = "EF "
-  pretty EG            = "EG "
-  pretty EU            = " EU "
-  pretty AX            = "AX "
-  pretty AF            = "AF "
-  pretty AG            = "AG "
-  pretty AU            = " AU "
-  pretty (Bind predSym var)      = pretty predSym <+> pretty var  <+> "| "
-  pretty (BodyJump predSym time) = pretty predSym <+> pretty time <+> "@ "
+  pretty Dogru                       = "TRUE"
+  pretty Negation                    = "!"
+  pretty Conjunction                 = ", "
+  pretty Disjunction                 = "; "
+  pretty (EX timePredSym)            = "EX" <+> pretty timePredSym <> " "
+  pretty (EF timePredSym)            = "EF" <+> pretty timePredSym <> " "
+  pretty (EG timePredSym)            = "EG" <+> pretty timePredSym <> " "
+  pretty (EU timePredSym)            = " EU" <+> pretty timePredSym <> " "
+  pretty (AX timePredSym)            = "AX" <+> pretty timePredSym <> " "
+  pretty (AF timePredSym)            = "AF" <+> pretty timePredSym <> " "
+  pretty (AG timePredSym)            = "AG" <+> pretty timePredSym <> " "
+  pretty (AU timePredSym)            = " AU" <+> pretty timePredSym <> " "
+  pretty (Bind timePredSym var)      = pretty timePredSym <+> pretty var  <+> "| "
+  pretty (BodyJump timePredSym time) = pretty timePredSym <+> pretty time <+> "@ "
 
 instance Pretty (HOp opKind) where
-  pretty (HeadJump predSym time) = pretty predSym <+> pretty time <+> "@ "
+  pretty (HeadJump timePredSym time) = pretty timePredSym <+> pretty time <+> "@ "
 
 instance Pretty Declaration where
   pretty (Declaration _ atom mTimes) =

@@ -92,21 +92,21 @@ HEAD :: { Subgoal HOp Term }
 | HEAD "@" FX_SYM TERM  { SHeadJump (span ($1,$4)) $1 (snd $3) $4 }
 
 SUBGOAL :: { Subgoal (BOp 'Temporal) Term }
-: ATOMIC_FORMULA              { SAtom (span $1) $1 }
-| neg SUBGOAL                 { SNeg (span ($1,$2)) $2 }
-| "(" SUBGOAL ")"             { $2 }
-| SUBGOAL conj SUBGOAL        { SConj (span ($1,$3)) $1 $3 }
-| SUBGOAL disj SUBGOAL        { SDisj (span ($1,$3)) $1 $3 }
-| ex SUBGOAL                  { SEX (span ($1,$2)) $2 }
-| ef SUBGOAL                  { SEF (span ($1,$2)) $2 }
-| eg SUBGOAL                  { SEG (span ($1,$2)) $2 }
-| e "[" SUBGOAL u SUBGOAL "]" { SEU (span ($1,$6)) $3 $5 }
-| ax SUBGOAL                  { SAX (span ($1,$2)) $2 }
-| af SUBGOAL                  { SAF (span ($1,$2)) $2 }
-| ag SUBGOAL                  { SAG (span ($1,$2)) $2 }
-| a "[" SUBGOAL u SUBGOAL "]" { SAU (span ($1,$6)) $3 $5 }
-| SUBGOAL "@" FX_SYM TERM     { SBodyJump (span ($1,$4)) $1 (snd $3) $4 }
-| "|" FX_SYM VAR SUBGOAL      { SBind     (span ($1,$4)) (snd $2) $3 $4 }
+: ATOMIC_FORMULA                      { SAtom (span $1) $1 }
+| neg SUBGOAL                         { SNeg (span ($1,$2)) $2 }
+| "(" SUBGOAL ")"                     { $2 }
+| SUBGOAL conj SUBGOAL                { SConj (span ($1,$3)) $1 $3 }
+| SUBGOAL disj SUBGOAL                { SDisj (span ($1,$3)) $1 $3 }
+| ex FX_SYM SUBGOAL                   { SEX (span ($1,$3)) (snd $2) $3 }
+| ef FX_SYM SUBGOAL                   { SEF (span ($1,$3)) (snd $2) $3 }
+| eg FX_SYM SUBGOAL                   { SEG (span ($1,$3)) (snd $2) $3 }
+| e  FX_SYM "[" SUBGOAL u SUBGOAL "]" { SEU (span ($1,$7)) (snd $2) $4 $6 }
+| ax FX_SYM SUBGOAL                   { SAX (span ($1,$3)) (snd $2) $3 }
+| af FX_SYM SUBGOAL                   { SAF (span ($1,$3)) (snd $2) $3 }
+| ag FX_SYM SUBGOAL                   { SAG (span ($1,$3)) (snd $2) $3 }
+| a  FX_SYM "[" SUBGOAL u SUBGOAL "]" { SAU (span ($1,$7)) (snd $2) $4 $6 }
+| SUBGOAL "@" FX_SYM TERM             { SBodyJump (span ($1,$4)) $1 (snd $3) $4 }
+| "|" FX_SYM VAR SUBGOAL              { SBind     (span ($1,$4)) (snd $2) $3 $4 }
 
 ATOMIC_FORMULA :: { AtomicFormula Term }
 : FX_SYM "(" TERMS ")" { AtomicFormula (transSpan (fst $1) (span $4)) (snd $1) (reverse $3) }

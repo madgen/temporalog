@@ -29,6 +29,7 @@ import Debug.Trace
 
 -- Start codes
 -- scB  = Body
+-- scSP = Single predicate
 -- scBJ = Body jump
 -- scBB = Body bind
 -- scD  = Declaration
@@ -38,8 +39,8 @@ import Debug.Trace
 -- str  = String
 token :-
 
-<0,scB,scBB,scBJ,scA,scDA,scD,scDT> $white+  ;
-<0>                                 "%".*    ;
+<0,scB,scSP,scBJ,scBB,scD,scDT,scA,scDA> $white+  ;
+<0>                                      "%".*    ;
 
 <0,scB>    "("  { basic TLeftPar }
 <0,scB>    ")"  { basic TRightPar }
@@ -53,15 +54,17 @@ token :-
 <scB> "["        { basic TLeftBracket }
 <scB> "]"        { basic TRightBracket }
 <scB> "!"        { basic TNeg }
-<scB> "EX"       { basic TEX }
-<scB> "EF"       { basic TEF }
-<scB> "EG"       { basic TEG }
-<scB> "E"        { basic TE }
-<scB> "AX"       { basic TAX }
-<scB> "AF"       { basic TAF }
-<scB> "AG"       { basic TAG }
-<scB> "A"        { basic TA }
+<scB> "EX"       { enterStartCodeAnd scSP $ basic TEX }
+<scB> "EF"       { enterStartCodeAnd scSP $ basic TEF }
+<scB> "EG"       { enterStartCodeAnd scSP $ basic TEG }
+<scB> "E"        { enterStartCodeAnd scSP $ basic TE }
+<scB> "AX"       { enterStartCodeAnd scSP $ basic TAX }
+<scB> "AF"       { enterStartCodeAnd scSP $ basic TAF }
+<scB> "AG"       { enterStartCodeAnd scSP $ basic TAG }
+<scB> "A"        { enterStartCodeAnd scSP $ basic TA }
 <scB> "U"        { basic TU }
+
+<scSP> @fxSym    { exitStartCodeAnd $ useInput TFxSym }
 
 <scB>     ":-"     { basic TRule }
 <0>       "?-"     { enterStartCodeAnd scB $ basic TQuery }
@@ -86,14 +89,12 @@ token :-
 <scD>  "@"    { enterStartCodeAnd scDT $ basic TJump }
 <scDT> @fxSym { exitStartCodeAnd $ useInput TFxSym }
 
-<scB> "|"     { enterStartCodeAnd scBB $ basic TBind }
-<scBB> @fxSym { useInput TFxSym }
+<scB> "|"     { enterStartCodeAnd scBB $ enterStartCodeAnd scSP $ basic TBind }
 <scBB> @var   { exitStartCodeAnd $ useInput TVariable }
 
-<scB> "@"     { enterStartCodeAnd scBJ $ basic TJump }
+<scB> "@"     { enterStartCodeAnd scBJ $ enterStartCodeAnd scSP $ basic TJump }
 <scBJ> true   { exitStartCodeAnd $ basic (TBool True) }
 <scBJ> false  { exitStartCodeAnd $ basic (TBool False) }
-<scBJ> @fxSym { useInput TFxSym }
 <scBJ> @var   { exitStartCodeAnd $ useInput TVariable }
 <scBJ> @int   { exitStartCodeAnd $ useInput (TInt . read . BS.unpack) }
 <scBJ> \"     { exitStartCodeAnd $ enterStartCodeAnd str $ skip }

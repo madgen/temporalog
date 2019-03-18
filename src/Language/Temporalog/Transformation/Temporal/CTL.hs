@@ -28,13 +28,13 @@ round1 = transformBody (cata alg)
   where
   alg :: Algebra (Base (Subgoal (BOp 'Temporal) Term))
                  (Subgoal (BOp 'Temporal) Term)
-  alg (SAXF span child) = SNeg span $ SEX span $ SNeg span child
-  alg (SAGF span child) = SNeg span $ SEF span $ SNeg span child
-  alg (SAFF span child) = SNeg span $ SEG span $ SNeg span child
-  alg (SAUF span child1 child2) =
-    SConj span (SEU span (SNeg span child2)
-                         (SConj span (SNeg span child1) (SNeg span child2)))
-               (SNeg span $ SEG span $ SNeg span child2)
+  alg (SAXF span timePredSym child) = SNeg span $ SEX span timePredSym $ SNeg span child
+  alg (SAGF span timePredSym child) = SNeg span $ SEF span timePredSym $ SNeg span child
+  alg (SAFF span timePredSym child) = SNeg span $ SEG span timePredSym $ SNeg span child
+  alg (SAUF span timePredSym child1 child2) =
+    SConj span (SEU span timePredSym (SNeg span child2)
+                                     (SConj span (SNeg span child1) (SNeg span child2)))
+               (SNeg span $ SEG span timePredSym $ SNeg span child2)
   alg s = embed s
 
 round2 :: AG.Program Void HOp (BOp 'Temporal)
@@ -43,7 +43,7 @@ round2 = transformBody (cata alg)
   where
   alg :: Algebra (Base (Subgoal (BOp 'Temporal) Term))
                  (Subgoal (BOp 'Temporal) Term)
-  alg (SEFF span child) = SEU span (SDogru span) child
+  alg (SEFF span timePredSym child) = SEU span timePredSym (SDogru span) child
   alg s = embed s
 
 round3 :: MD.Metadata
