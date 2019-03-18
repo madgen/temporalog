@@ -33,7 +33,8 @@ import qualified Language.Temporalog.Metadata as MD
 import qualified Language.Temporalog.Parser.Lexer as Lexer
 import qualified Language.Temporalog.Parser.Parser as Parser
 import           Language.Temporalog.Transformation.Declaration (removeDecls)
-import           Language.Temporalog.Transformation.Temporal.CTL (eliminateTemporal)
+import           Language.Temporalog.Transformation.Temporal.Identities (applyTemporalIdentities)
+import           Language.Temporalog.Transformation.Temporal.Compiler (eliminateTemporal)
 import           Language.Temporalog.TypeChecker (typeCheck)
 
 type Stage a = FilePath -> BS.ByteString -> Log.LoggerM a

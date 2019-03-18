@@ -1,6 +1,8 @@
 {-# LANGUAGE DataKinds #-}
 
-module Language.Temporalog.Transformation.Temporal.CTL (eliminateTemporal) where
+module Language.Temporalog.Transformation.Temporal.Compiler
+  ( eliminateTemporal
+  ) where
 
 import Protolude
 
