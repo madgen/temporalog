@@ -56,8 +56,8 @@ noDeclaration file bs = second removeDecls <$> metadata file bs
 
 noTemporal :: Stage (MD.Metadata, AG.Program Void (Const Void) (BOp 'ATemporal))
 noTemporal file bs = do
-  res@(meta, ast) <- noDeclaration file bs
-  ast' <- uncurry eliminateTemporal res
+  (meta, ast) <- noDeclaration file bs
+  ast' <- eliminateTemporal meta (applyTemporalIdentities ast)
   pure (meta, ast')
 
 removeTemporal :: Stage (MD.Metadata, VA.Program)
