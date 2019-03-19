@@ -1,3 +1,4 @@
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE DataKinds #-}
 
 module Language.Temporalog.Transformation.Temporal.Compiler
@@ -13,7 +14,7 @@ import Data.Functor.Foldable (Base, cata, embed)
 import Data.Text (pack)
 
 import qualified Language.Vanillalog.AST as A
-import           Language.Vanillalog.Generic.Transformation.Util (Algebra, transformBody)
+import           Language.Vanillalog.Generic.Transformation.Util (Algebra)
 import qualified Language.Vanillalog.Generic.AST as AG
 import qualified Language.Vanillalog.Generic.Logger as Log
 import           Language.Vanillalog.Generic.Parser.SrcLoc (span)
@@ -55,4 +56,13 @@ mkClause headPredSym args body =
 eliminateTemporal :: MD.Metadata
                   -> AG.Program Void HOp (BOp 'Temporal)
                   -> Log.LoggerM (AG.Program Void (Const Void) (BOp 'ATemporal))
-eliminateTemporal metadata pr = _
+eliminateTemporal metadata AG.Program{..} = _
+  where
+
+  goClause :: AG.Clause HOp (BOp 'Temporal)
+           -> CompilerMT Identity (AG.Clause HOp (BOp 'Temporal))
+  goClause = _
+
+  goSub :: AG.Subgoal (BOp 'Temporal) Term
+        -> CompilerMT Identity (AG.Subgoal (BOp 'Temporal) Term)
+  goSub = _
