@@ -6,9 +6,11 @@ module Language.Temporalog.Transformation.Temporal.Compiler
 
 import Protolude
 
+
 import Control.Arrow ((>>>))
 
 import Data.Functor.Foldable (Base, cata, embed)
+import Data.Text (pack)
 
 import qualified Language.Vanillalog.AST as A
 import           Language.Vanillalog.Generic.Transformation.Util (Algebra, transformBody)
@@ -19,12 +21,38 @@ import           Language.Vanillalog.Generic.Parser.SrcLoc (span)
 import           Language.Temporalog.AST
 import qualified Language.Temporalog.Metadata as MD
 
+type CompilerMT = StateT ( ([ AG.PredicateSymbol ], Int)
+                         , [ AG.Clause (Const Void) (Const Void) ]
+                         )
+
+runCompilerMT :: Monad m
+              => CompilerMT m a
+              -> [ AG.PredicateSymbol ]
+              -> m (a, [ AG.Clause (Const Void) (Const Void) ])
+runCompilerMT action predSyms = second snd <$> runStateT action ((predSyms, 1), [ ])
+
+addClause :: Monad m => AG.Clause (Const Void) (Const Void) -> CompilerMT m ()
+addClause clause = modify (second (clause :))
+
+freshPredSym :: Monad m => CompilerMT m PredicateSymbol
+freshPredSym = do
+  (predSyms, ix) <- fst <$> get
+  pure $ go predSyms ix
+  where
+    go predSyms i | candidate <- PredicateSymbol [ "aux" <> pack (show i) ] =
+      if candidate `elem` predSyms then go predSyms (i + 1) else candidate
+
+-- |Assembles a clause
+mkClause :: PredicateSymbol              -- |Name of the predicate to define
+         -> [ Term ]                     -- |Argument list
+         -> AG.Subgoal (Const Void) Term -- |Body formula
+         -> AG.Clause (Const Void) (Const Void)
+mkClause headPredSym args body =
+  AG.Clause (span body)
+    (SAtom (span body)
+      (AtomicFormula (span body) headPredSym args)) body
+
 eliminateTemporal :: MD.Metadata
                   -> AG.Program Void HOp (BOp 'Temporal)
                   -> Log.LoggerM (AG.Program Void (Const Void) (BOp 'ATemporal))
-eliminateTemporal = round3
-
-round3 :: MD.Metadata
-       -> AG.Program Void HOp (BOp 'Temporal)
-       -> Log.LoggerM (AG.Program Void (Const Void) (BOp 'ATemporal))
-round3 = _
+eliminateTemporal metadata pr = _
