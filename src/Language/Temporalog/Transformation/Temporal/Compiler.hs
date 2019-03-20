@@ -15,10 +15,11 @@ import           Data.Functor.Foldable (Base, cata, embed)
 import           Data.Text (pack)
 import qualified Data.Map.Strict as M
 
-import           Language.Vanillalog.Generic.Transformation.Util (Algebra)
 import qualified Language.Vanillalog.Generic.AST as AG
 import qualified Language.Vanillalog.Generic.Logger as Log
 import           Language.Vanillalog.Generic.Parser.SrcLoc (span, dummySpan)
+import           Language.Vanillalog.Generic.Pretty (pp)
+import           Language.Vanillalog.Generic.Transformation.Util (Algebra)
 
 import           Language.Temporalog.AST
 import qualified Language.Temporalog.Metadata as MD
@@ -54,6 +55,16 @@ setClock :: Monad m
          => AG.PredicateSymbol -> Term -> TimeEnvMT m a -> TimeEnvMT m a
 setClock predSym time = local (M.insert predSym time)
 
+observeClock :: AG.PredicateSymbol -> ClauseM Term
+observeClock predSym = do
+  env <- ask
+  maybe
+    ( lift . lift . lift
+    $ Log.scream Nothing (pp predSym <> " is not a key in the time environment.")
+    )
+    pure
+    (predSym `M.lookup` env)
+
 type FreshVarMT = StateT ([ Var ], Int)
 
 runFreshVarMT :: Monad m => [ Var ] -> FreshVarMT m a -> m a
@@ -71,7 +82,8 @@ freshVar = do
 
 freshTimeEnv :: MD.Metadata
              -> AG.Clause b c
-             -- The following is super ugly. It's time I switch to effects.
+             -- The following is super ugly. It's time I switch to
+             -- algebraic effects.
              -> FreshVarMT (CompilerMT Log.LoggerM) TimeEnv
 freshTimeEnv metadata cl@AG.Clause{..} = do
   timePredSyms <- lift . lift $ timePredSymsM
@@ -80,7 +92,13 @@ freshTimeEnv metadata cl@AG.Clause{..} = do
   where
   predSyms = map #_predSym (AG.atoms cl :: [ AG.AtomicFormula Term])
   timePredSymsM = concatMap MD.timingPreds
-             <$> traverse (`MD.lookupM` metadata) predSyms
+              <$> traverse (`MD.lookupM` metadata) predSyms
+
+type ClauseM = TimeEnvMT (FreshVarMT (CompilerMT Log.LoggerM))
+
+runClauseM :: [ Var ] -> TimeEnv -> ClauseM a -> CompilerMT Log.LoggerM a
+runClauseM vars timeEnv action =
+  runFreshVarMT vars (runTimeEnvMT action timeEnv)
 
 -- |Assembles a clause
 mkClause :: PredicateSymbol              -- |Name of the predicate to define
@@ -96,9 +114,10 @@ eliminateTemporal :: MD.Metadata
                   -> AG.Program Void HOp (BOp 'Temporal)
                   -> Log.LoggerM (AG.Program Void (Const Void) (BOp 'ATemporal))
 eliminateTemporal metadata program = do
-  (newProgram, newClauses) <- runCompilerMT (goPr program) _
+  let predSyms = map #_predSym (AG.atoms program :: [ AG.AtomicFormula Term ])
+  (newProgram, newClauses) <- runCompilerMT (goPr program) predSyms
   let newStatements = AG.StSentence . AG.SClause <$> newClauses
-  pure (newProgram {AG._statements = _statements newProgram <> newStatements})
+  pure (newProgram {AG._statements = AG._statements newProgram <> newStatements})
   where
   goPr :: AG.Program Void HOp (BOp 'Temporal)
        -> CompilerMT Log.LoggerM (AG.Program Void (Const Void) (BOp 'ATemporal))
@@ -118,8 +137,62 @@ eliminateTemporal metadata program = do
 
   goClause :: AG.Clause HOp (BOp 'Temporal)
            -> CompilerMT Log.LoggerM (AG.Clause (Const Void) (BOp 'ATemporal))
-  goClause = _
+  goClause cl@AG.Clause{..} = do
+    let clauseVars = AG.vars cl
 
-  goSub :: AG.Subgoal (BOp 'Temporal) Term
-        -> CompilerMT Log.LoggerM (AG.Subgoal (BOp 'ATemporal) Term)
-  goSub = _
+    timeEnv <- runFreshVarMT clauseVars (freshTimeEnv metadata cl)
+
+    runClauseM clauseVars timeEnv $ do
+      newHead <- goHead _head
+      newBody <- goBody _body
+      pure AG.Clause {_head = newHead, _body = newBody,..}
+
+  compileAtom :: AtomicFormula Term -> ClauseM (AtomicFormula Term)
+  compileAtom atom = do
+    timings <- MD.timingPreds
+           <$> (lift . lift . lift) (#_predSym atom `MD.lookupM` metadata)
+    timeTerms <- traverse observeClock timings
+    pure $ atom {_terms = _terms atom <> timeTerms}
+
+  goHead :: AG.Subgoal HOp Term -> ClauseM (AG.Subgoal (Const Void) Term)
+  goHead AG.SAtom{..} =
+    (\atom -> AG.SAtom{_atom = atom,..}) <$> compileAtom _atom
+  goHead (SHeadJump span child timePredSym time) =
+    setClock timePredSym time (goHead child)
+
+  goBody :: AG.Subgoal (BOp 'Temporal) Term
+         -> ClauseM (AG.Subgoal (BOp 'ATemporal) Term)
+  -- Predicate
+  goBody AG.SAtom{..} =
+    (\atom -> AG.SAtom{_atom = atom,..}) <$> compileAtom _atom
+  -- Logical operators
+  goBody (SNeg span c)      = SNeg span  <$> goBody c
+  goBody (SConj span c1 c2) = SConj span <$> goBody c1 <*> goBody c2
+  goBody (SDogru span)      = pure (SDogru span)
+  -- Hybrid operators
+  goBody (SBodyJump span child timePredSym time) =
+    setClock timePredSym time (goBody child)
+  goBody (SBind span timePredSym var child) = do
+    timeTerm <- observeClock timePredSym
+    newChild <- goBody child
+    pure $ subst var timeTerm newChild
+  -- Temporal operators
+  goBody _ = _
+
+subst :: Var  -- |To be substituted
+      -> Term -- |To substitute in
+      -> Subgoal (BOp 'ATemporal) Term
+      -> Subgoal (BOp 'ATemporal) Term
+subst var term = cata alg
+  where
+  alg :: Algebra (Base (Subgoal (BOp 'ATemporal) Term)) (Subgoal (BOp 'ATemporal) Term)
+  alg AG.SAtomF{..} =
+    AG.SAtom{ _span = _spanF
+            , _atom = _atomF {_terms = substParams var term (_terms _atomF)}
+            }
+  alg s = embed s
+
+substParams :: Var -> Term -> [ Term ] -> [ Term ]
+substParams var term = map (\case
+  t@(TVar v) -> if v == var then term else t
+  t          -> t)
