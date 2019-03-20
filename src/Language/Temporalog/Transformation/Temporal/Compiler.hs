@@ -78,7 +78,7 @@ freshTimeEnv metadata cl@AG.Clause{..} = do
   freshVars <- fmap TVar <$> replicateM (length timePredSyms) freshVar
   pure $ M.fromList $ zip timePredSyms freshVars
   where
-  predSyms = map #_predSym $ AG.atoms _head <> AG.atoms _body
+  predSyms = map #_predSym (AG.atoms cl :: [ AG.AtomicFormula Term])
   timePredSymsM = concatMap MD.timingPreds
              <$> traverse (`MD.lookupM` metadata) predSyms
 

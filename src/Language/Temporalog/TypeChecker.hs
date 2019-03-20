@@ -20,14 +20,9 @@ import qualified Language.Temporalog.Metadata as MD
 type LocalTypeEnvironment  = [ (Var, TermType) ]
 
 typeCheck :: MD.Metadata -> A.Program -> Log.LoggerM ()
-typeCheck metadata program = void
-                          $ transformM (\s -> check (collect s) $> s) program
+typeCheck metadata program =
+  void $ transformM (\s -> check (atoms (s :: A.Sentence)) $> s) program
   where
-  collect :: A.Sentence -> [ AtomicFormula Term ]
-  collect (SFact   Fact{..})   = atoms _head
-  collect (SQuery  Query{..})  = (fmap TVar <$> maybe [] atoms _head) ++ atoms _body
-  collect (SClause Clause{..}) = atoms _head                          ++ atoms _body
-
   check :: [ AtomicFormula Term ] -> Log.LoggerM ()
   check = void . foldrM yakk [] . reverse
 
