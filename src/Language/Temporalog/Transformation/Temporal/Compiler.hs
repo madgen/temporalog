@@ -24,16 +24,16 @@ import           Language.Temporalog.AST
 import qualified Language.Temporalog.Metadata as MD
 
 type CompilerMT = StateT ( ([ AG.PredicateSymbol ], Int)
-                         , [ AG.Clause (Const Void) (Const Void) ]
+                         , [ AG.Clause (Const Void) (BOp 'ATemporal) ]
                          )
 
 runCompilerMT :: Monad m
               => CompilerMT m a
               -> [ AG.PredicateSymbol ]
-              -> m (a, [ AG.Clause (Const Void) (Const Void) ])
+              -> m (a, [ AG.Clause (Const Void) (BOp 'ATemporal) ])
 runCompilerMT action predSyms = second snd <$> runStateT action ((predSyms, 1), [ ])
 
-addClause :: Monad m => AG.Clause (Const Void) (Const Void) -> CompilerMT m ()
+addClause :: Monad m => AG.Clause (Const Void) (BOp 'ATemporal) -> CompilerMT m ()
 addClause clause = modify (second (clause :))
 
 freshPredSym :: Monad m => CompilerMT m PredicateSymbol
@@ -69,9 +69,12 @@ freshVar = do
   where
   var ix = Var dummySpan ("X" <> pack (show ix))
 
-freshTimeEnv :: MD.Metadata -> AG.Clause b c -> FreshVarMT Log.LoggerM TimeEnv
+freshTimeEnv :: MD.Metadata
+             -> AG.Clause b c
+             -- The following is super ugly. It's time I switch to effects.
+             -> FreshVarMT (CompilerMT Log.LoggerM) TimeEnv
 freshTimeEnv metadata cl@AG.Clause{..} = do
-  timePredSyms <- lift timePredSymsM
+  timePredSyms <- lift . lift $ timePredSymsM
   freshVars <- fmap TVar <$> replicateM (length timePredSyms) freshVar
   pure $ M.fromList $ zip timePredSyms freshVars
   where
@@ -82,8 +85,8 @@ freshTimeEnv metadata cl@AG.Clause{..} = do
 -- |Assembles a clause
 mkClause :: PredicateSymbol              -- |Name of the predicate to define
          -> [ Term ]                     -- |Argument list
-         -> AG.Subgoal (Const Void) Term -- |Body formula
-         -> AG.Clause (Const Void) (Const Void)
+         -> AG.Subgoal (BOp 'ATemporal) Term -- |Body formula
+         -> AG.Clause (Const Void) (BOp 'ATemporal)
 mkClause headPredSym args body =
   AG.Clause (span body)
     (SAtom (span body)
@@ -92,13 +95,31 @@ mkClause headPredSym args body =
 eliminateTemporal :: MD.Metadata
                   -> AG.Program Void HOp (BOp 'Temporal)
                   -> Log.LoggerM (AG.Program Void (Const Void) (BOp 'ATemporal))
-eliminateTemporal metadata AG.Program{..} = _
+eliminateTemporal metadata program = do
+  (newProgram, newClauses) <- runCompilerMT (goPr program) _
+  let newStatements = AG.StSentence . AG.SClause <$> newClauses
+  pure (newProgram {AG._statements = _statements newProgram <> newStatements})
   where
+  goPr :: AG.Program Void HOp (BOp 'Temporal)
+       -> CompilerMT Log.LoggerM (AG.Program Void (Const Void) (BOp 'ATemporal))
+  goPr AG.Program{..} = do
+    newStatements <- traverse goSt _statements
+    pure AG.Program{_statements = newStatements,..}
+
+  goSt :: AG.Statement Void HOp (BOp 'Temporal)
+       -> CompilerMT Log.LoggerM (AG.Statement Void (Const Void) (BOp 'ATemporal))
+  goSt AG.StSentence{..} =
+    (\s -> AG.StSentence{_sentence = s,..}) <$> goSent _sentence
+  goSt AG.StDeclaration{..} = absurd _declaration
+
+  goSent :: AG.Sentence HOp (BOp 'Temporal)
+         -> CompilerMT Log.LoggerM (AG.Sentence (Const Void) (BOp 'ATemporal))
+  goSent AG.SClause{..} = (\cl -> AG.SClause{_clause = cl,..}) <$> goClause _clause
 
   goClause :: AG.Clause HOp (BOp 'Temporal)
-           -> CompilerMT Identity (AG.Clause HOp (BOp 'Temporal))
+           -> CompilerMT Log.LoggerM (AG.Clause (Const Void) (BOp 'ATemporal))
   goClause = _
 
   goSub :: AG.Subgoal (BOp 'Temporal) Term
-        -> CompilerMT Identity (AG.Subgoal (BOp 'Temporal) Term)
+        -> CompilerMT Log.LoggerM (AG.Subgoal (BOp 'ATemporal) Term)
   goSub = _
