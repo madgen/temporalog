@@ -177,6 +177,15 @@ eliminateTemporal metadata program = do
     newChild <- subst' var timeTerm child
     goBody child
   -- Temporal operators
+  goBody (SEX span timePredSym child) = do
+    timeTerm <- observeClock timePredSym
+    nextTimeTerm <- TVar <$> lift freshVar
+    let accessibility =
+          AtomicFormula{ _span = span
+                       , _predSym = timePredSym
+                       , _terms = [ timeTerm, nextTimeTerm ]}
+    newChild <- setClock timePredSym nextTimeTerm (goBody child)
+    pure $ SConj span (SAtom span accessibility) newChild
   goBody _ = _
 
 subst' :: Var
