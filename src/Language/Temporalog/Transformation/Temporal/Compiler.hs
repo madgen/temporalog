@@ -174,8 +174,8 @@ eliminateTemporal metadata program = do
     setClock timePredSym time (goBody child)
   goBody (SBind span timePredSym var child) = do
     timeTerm <- observeClock timePredSym
-    newChild <- goBody child
-    pure $ subst var timeTerm newChild
+    newChild <- subst' var timeTerm child
+    goBody child
   -- Temporal operators
   goBody _ = _
 
@@ -202,7 +202,7 @@ subst' var term sub =
         newChild <- subst' var term alphaChild
         pure $ SBind span timePredSym alphaVar newChild
       -- No risk of capture, continue recursing
-      | _ -> SBind span timePredSym var <$> subst' var term child
+      | otherwise -> SBind span timePredSym var <$> subst' var term child
     -- Boring cases:
     s@AG.SNullOp{} -> pure s
     AG.SUnOp{..}   -> (\c -> AG.SUnOp{_child = c,..}) <$> subst' var term _child
