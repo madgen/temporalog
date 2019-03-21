@@ -210,20 +210,6 @@ subst' var term sub =
                   <$> subst' var term _child1
                   <*> subst' var term _child2
 
-
-subst :: Var  -- |To be substituted
-      -> Term -- |To substitute in
-      -> Subgoal (BOp 'ATemporal) Term
-      -> Subgoal (BOp 'ATemporal) Term
-subst var term = cata alg
-  where
-  alg :: Algebra (Base (Subgoal (BOp 'ATemporal) Term)) (Subgoal (BOp 'ATemporal) Term)
-  alg AG.SAtomF{..} =
-    AG.SAtom{ _span = _spanF
-            , _atom = _atomF {_terms = substParams var term (_terms _atomF)}
-            }
-  alg s = embed s
-
 substParams :: Var -> Term -> [ Term ] -> [ Term ]
 substParams var term = map (\case
   t@(TVar v) -> if v == var then term else t
