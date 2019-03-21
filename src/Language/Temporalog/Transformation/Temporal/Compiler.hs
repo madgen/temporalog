@@ -11,7 +11,7 @@ import Protolude
 
 import Control.Arrow ((>>>))
 
-import           Data.Functor.Foldable (Base, cata, embed)
+import           Data.Functor.Foldable (Base, cata, embed, ana, project)
 import           Data.Text (pack)
 import qualified Data.Map.Strict as M
 
@@ -19,7 +19,7 @@ import qualified Language.Vanillalog.Generic.AST as AG
 import qualified Language.Vanillalog.Generic.Logger as Log
 import           Language.Vanillalog.Generic.Parser.SrcLoc (span, dummySpan)
 import           Language.Vanillalog.Generic.Pretty (pp)
-import           Language.Vanillalog.Generic.Transformation.Util (Algebra)
+import           Language.Vanillalog.Generic.Transformation.Util (Algebra, Coalgebra)
 
 import           Language.Temporalog.AST
 import qualified Language.Temporalog.Metadata as MD
@@ -178,6 +178,38 @@ eliminateTemporal metadata program = do
     pure $ subst var timeTerm newChild
   -- Temporal operators
   goBody _ = _
+
+subst' :: Var
+       -> Term
+       -> Subgoal (BOp a) Term
+       -> ClauseM (Subgoal (BOp a) Term)
+subst' var term sub =
+  case sub of
+    AG.SAtom{..} -> pure
+      AG.SAtom{_atom = _atom {_terms = substParams var term (_terms _atom)},..}
+    SBodyJump span child timePredSym time -> do
+      let newTime = if time == TVar var then term else time
+      newChild <- subst' var term child
+      pure $ SBodyJump span newChild timePredSym newTime
+    SBind span timePredSym var' child
+      -- No free occurrences of var in this child
+      | var == var' -> pure $ SBind span timePredSym var child
+      -- Substitution would capture, so alpha rename the Bind expression
+      | TVar var'' <- term
+      , var' == var'' -> do
+        alphaVar <- lift freshVar
+        alphaChild <- subst' var' (TVar alphaVar) child
+        newChild <- subst' var term alphaChild
+        pure $ SBind span timePredSym alphaVar newChild
+      -- No risk of capture, continue recursing
+      | _ -> SBind span timePredSym var <$> subst' var term child
+    -- Boring cases:
+    s@AG.SNullOp{} -> pure s
+    AG.SUnOp{..}   -> (\c -> AG.SUnOp{_child = c,..}) <$> subst' var term _child
+    AG.SBinOp{..}  -> (\c1 c2 -> AG.SBinOp{_child1 = c1, _child2 = c2,..})
+                  <$> subst' var term _child1
+                  <*> subst' var term _child2
+
 
 subst :: Var  -- |To be substituted
       -> Term -- |To substitute in
