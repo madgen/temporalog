@@ -40,6 +40,7 @@ addClause clause = modify (second (clause :))
 freshPredSym :: Monad m => CompilerMT m PredicateSymbol
 freshPredSym = do
   (predSyms, ix) <- fst <$> get
+  modify (first (second (+ 1)))
   pure $ go predSyms ix
   where
     go predSyms i | candidate <- PredicateSymbol [ "aux" <> pack (show i) ] =
