@@ -85,11 +85,14 @@ freshTimeEnv :: MD.Metadata
              -> AG.Sentence a b
              -- The following is super ugly. It's time I switch to
              -- algebraic effects.
-             -> FreshVarMT (CompilerMT Log.LoggerM) TimeEnv
+             -> FreshVarMT (CompilerMT Log.LoggerM)
+                  ( TimeEnv
+                  , [ Var ] -- Newly generated vars
+                  )
 freshTimeEnv metadata sent = do
   timePredSyms <- lift . lift $ timePredSymsM
-  freshVars <- fmap TVar <$> replicateM (length timePredSyms) freshVar
-  pure $ M.fromList $ zip timePredSyms freshVars
+  freshVars <- replicateM (length timePredSyms) freshVar
+  pure (M.fromList $ zip timePredSyms (TVar <$> freshVars), freshVars)
   where
   predSyms = map #_predSym (AG.atoms sent :: [ AG.AtomicFormula Term])
   timePredSymsM = concatMap MD.timingPreds
@@ -127,9 +130,9 @@ eliminateTemporal metadata program = do
   goSent sent = do
     let sentVars = AG.vars sent
 
-    timeEnv <- runFreshVarMT sentVars (freshTimeEnv metadata sent)
+    (timeEnv, newTimeVars) <- runFreshVarMT sentVars (freshTimeEnv metadata sent)
 
-    runClauseM sentVars timeEnv $
+    runClauseM (sentVars <> newTimeVars) timeEnv $
       case sent of
         AG.SClause AG.Clause{..} -> do
           newHead <- goHead _head
