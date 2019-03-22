@@ -67,12 +67,14 @@ token :-
 <scSP> @fxSym    { exitStartCodeAnd $ useInput TFxSym }
 
 <scB>     ":-"     { basic TRule }
+<scA>     ":-"     { exitStartCodeAnd $ basic TRule }
 <0>       "?-"     { enterStartCodeAnd scB $ basic TQuery }
 <0>       ".decl"  { enterStartCodeAnd scD $ basic TDecl }
 <scB,scD> "."      { exitStartCodeAnd $ basic TDot }
 <scDA>    "."      { exitStartCodeAnd $ exitStartCodeAnd $ basic TDot }
 
 <0>        @fxSym { enterStartCodeAnd scB $ enterStartCodeAnd scA $ useInput TFxSym }
+<scA>      "@"    { exitStartCodeAnd $ basic TJump }
 <scB>      @fxSym { enterStartCodeAnd scA $ useInput TFxSym }
 <scA,scDA> "("    { basic TLeftPar }
 <scA,scDA> ")"    { exitStartCodeAnd $ basic TRightPar }
@@ -82,6 +84,7 @@ token :-
 <scA>      @int   { useInput (TInt . read . BS.unpack) }
 
 <scD>      @fxSym { enterStartCodeAnd scDA $ useInput TFxSym }
+<scDA>     "@"    { exitStartCodeAnd $ enterStartCodeAnd scDT $ basic TJump }
 <scDA>     "int"  { basic TTTInt }
 <scDA>     "bool" { basic TTTBool }
 <scDA>     "text" { basic TTTText }
