@@ -198,10 +198,7 @@ eliminateTemporal metadata program = do
     -- Generate auxillary clauses
     lift $ lift $ addClause $ AG.Clause span auxAtom psi'
 
-    -- If the time term is a variable substitute (advance time), otherwise nop.
-    recAuxAtom <- case timeTerm of
-       TVar var -> subst' var nextTimeTerm auxAtom
-       _        -> pure auxAtom
+    recAuxAtom <- subst'' timeTerm nextTimeTerm auxAtom
 
     let accAtom = accessibilityAtom timePredSym timeTerm nextTimeTerm
 
@@ -210,7 +207,6 @@ eliminateTemporal metadata program = do
 
     -- Compile by calling the auxillary clause
     pure auxAtom
-{-
   goBody (SAF span timePredSym phi) = do
     [aux1PredSym, aux2PredSym]  <- replicateM 2 $ (lift . lift) freshPredSym
 
@@ -218,26 +214,72 @@ eliminateTemporal metadata program = do
     x <- observeClock timePredSym
 
     -- auxillary variables used to advance time (among other things)
-    [y, z] <- replicateM 2 $ TVar <$> lift freshVar
+    [y, z] <- replicateM 2 $ lift freshVar
 
     phi' <- goBody phi
-
-    -- Generate auxillary clauses
-    --
-    -- Loop finding aux2:
-    let aux2Atom = SAtom span
-          AtomicFormula{ _span = span
-                       , _predSym = auxPredSym
-                       , _terms = params <> [ z ]
-                       }
-
-    lift $ lift $ addClause $ mkClause -- that's where I am
 
     -- A subset of parameters for aux1 and aux2
     let params = TVar <$> vars phi
 
+    -- Generate auxillary clauses
+
+    -- Negative path finding aux2:
+    let aux2Atom = SAtom span
+          AtomicFormula{ _span = span
+                       , _predSym = aux2PredSym
+                       , _terms = params <> [ TVar z ]
+                       }
+
+    -- Base case:
+    -- Find a point phi doesn't hold
+    lift $ lift $ addClause $ AG.Clause span aux2Atom
+      (SConj span (SNeg span phi') (accessibilityAtom timePredSym x (TVar z)))
+
+    -- Inductive case:
+    -- Work backwards to find other points it doesn't hold
+    recAux2Atom  <- subst' z (TVar y) aux2Atom
+    phi'Advanced <- subst'' x (TVar y) phi'
+    let accAtom2 = accessibilityAtom timePredSym (TVar y) (TVar z)
+
+    lift $ lift $ addClause $ AG.Clause span aux2Atom
+      (SConj span recAux2Atom
+                  (SConj span (SNeg span phi'Advanced)
+                              accAtom2))
+
+    -- Finding negative paths to the loop
+    let aux1Atom = SAtom span
+          AtomicFormula{ _span = span
+                       , _predSym = aux1PredSym
+                       , _terms = params
+                       }
+
+    -- Base case:
+    -- Find a handle on the loop using aux2
+
+    -- We assume (hope) that params already has the time parameter (x)
+    -- inside so the second x ties the loop.
+    let loopyAux2Atom = SAtom span
+          AtomicFormula{ _span = span
+                       , _predSym = aux2PredSym
+                       , _terms = params <> [ x ]
+                       }
+
+    lift $ lift $ addClause $ AG.Clause span aux1Atom loopyAux2Atom
+
+    -- Inductive case:
+    -- Work backwards again but not for loops just for paths that lead to
+    -- the loop.
+
+    let accAtom1 = accessibilityAtom timePredSym x (TVar y)
+
+    aux1AtomAdvanced <- subst'' x (TVar y) aux1Atom
+
+    lift $ lift $ addClause $ AG.Clause span aux1Atom
+      (SConj span aux1AtomAdvanced
+                  (SConj span (SNeg span phi')
+                              accAtom1))
+
     pure $ SNeg span aux1Atom
--}
 
 
 accessibilityAtom :: PredicateSymbol
@@ -249,6 +291,17 @@ accessibilityAtom predSym now next =
                                  , _predSym = predSym
                                  , _terms = [now, next]
                                  })
+
+-- |A substitution that allows a constant to be the thing to be replaced.
+-- It simply ignores it.
+subst'' :: Term
+        -> Term
+        -> Subgoal (BOp a) Term
+        -> ClauseM (Subgoal (BOp a) Term)
+subst'' key val exp =
+  case key of
+    TVar v -> subst' v val exp
+    _      -> pure exp
 
 subst' :: Var
        -> Term
