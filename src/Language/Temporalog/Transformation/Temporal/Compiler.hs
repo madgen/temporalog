@@ -100,16 +100,6 @@ runClauseM :: [ Var ] -> TimeEnv -> ClauseM a -> CompilerMT Log.LoggerM a
 runClauseM vars timeEnv action =
   runFreshVarMT vars (runTimeEnvMT action timeEnv)
 
--- |Assembles a clause
-mkClause :: PredicateSymbol                  -- |Name of the predicate to define
-         -> [ Term ]                         -- |Argument list
-         -> AG.Subgoal (BOp 'ATemporal) Term -- |Body formula
-         -> AG.Clause (Const Void) (BOp 'ATemporal)
-mkClause headPredSym args body =
-  AG.Clause (span body)
-    (SAtom (span body)
-      (AtomicFormula (span body) headPredSym args)) body
-
 eliminateTemporal :: MD.Metadata
                   -> AG.Program Void HOp (BOp 'Temporal)
                   -> Log.LoggerM (AG.Program Void (Const Void) (BOp 'ATemporal))
@@ -189,6 +179,7 @@ eliminateTemporal metadata program = do
 
     pure $ SConj span accAtom newChild
   goBody (SEU span timePredSym phi psi) = do
+    -- Get an axuillary predicate and its de facto atom
     auxPredSym   <- (lift . lift) freshPredSym
     timeTerm     <- observeClock timePredSym
     nextTimeTerm <- TVar <$> lift freshVar
@@ -205,7 +196,7 @@ eliminateTemporal metadata program = do
                        }
 
     -- Generate auxillary clauses
-    lift $ lift $ addClause $ mkClause auxPredSym params psi'
+    lift $ lift $ addClause $ AG.Clause span auxAtom psi'
 
     -- If the time term is a variable substitute (advance time), otherwise nop.
     recAuxAtom <- case timeTerm of
@@ -214,11 +205,40 @@ eliminateTemporal metadata program = do
 
     let accAtom = accessibilityAtom timePredSym timeTerm nextTimeTerm
 
-    lift $ lift $ addClause $ mkClause auxPredSym params
+    lift $ lift $ addClause $ AG.Clause span auxAtom
       (SConj span accAtom (SConj span phi' recAuxAtom))
 
     -- Compile by calling the auxillary clause
     pure auxAtom
+{-
+  goBody (SAF span timePredSym phi) = do
+    [aux1PredSym, aux2PredSym]  <- replicateM 2 $ (lift . lift) freshPredSym
+
+    -- x is the time term (maybe not even a variable)
+    x <- observeClock timePredSym
+
+    -- auxillary variables used to advance time (among other things)
+    [y, z] <- replicateM 2 $ TVar <$> lift freshVar
+
+    phi' <- goBody phi
+
+    -- Generate auxillary clauses
+    --
+    -- Loop finding aux2:
+    let aux2Atom = SAtom span
+          AtomicFormula{ _span = span
+                       , _predSym = auxPredSym
+                       , _terms = params <> [ z ]
+                       }
+
+    lift $ lift $ addClause $ mkClause -- that's where I am
+
+    -- A subset of parameters for aux1 and aux2
+    let params = TVar <$> vars phi
+
+    pure $ SNeg span aux1Atom
+-}
+
 
 accessibilityAtom :: PredicateSymbol
                   -> Term
