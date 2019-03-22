@@ -81,16 +81,16 @@ freshVar = do
   var ix = Var dummySpan ("X" <> pack (show ix))
 
 freshTimeEnv :: MD.Metadata
-             -> AG.Clause b c
+             -> AG.Sentence a b
              -- The following is super ugly. It's time I switch to
              -- algebraic effects.
              -> FreshVarMT (CompilerMT Log.LoggerM) TimeEnv
-freshTimeEnv metadata cl@AG.Clause{..} = do
+freshTimeEnv metadata sent = do
   timePredSyms <- lift . lift $ timePredSymsM
   freshVars <- fmap TVar <$> replicateM (length timePredSyms) freshVar
   pure $ M.fromList $ zip timePredSyms freshVars
   where
-  predSyms = map #_predSym (AG.atoms cl :: [ AG.AtomicFormula Term])
+  predSyms = map #_predSym (AG.atoms sent :: [ AG.AtomicFormula Term])
   timePredSymsM = concatMap MD.timingPreds
               <$> traverse (`MD.lookupM` metadata) predSyms
 
@@ -123,19 +123,27 @@ eliminateTemporal metadata program = do
 
   goSent :: AG.Sentence HOp (BOp 'Temporal)
          -> CompilerMT Log.LoggerM (AG.Sentence (Const Void) (BOp 'ATemporal))
-  goSent AG.SClause{..} = (\cl -> AG.SClause{_clause = cl,..}) <$> goClause _clause
+  goSent sent = do
+    let sentVars = AG.vars sent
 
-  goClause :: AG.Clause HOp (BOp 'Temporal)
-           -> CompilerMT Log.LoggerM (AG.Clause (Const Void) (BOp 'ATemporal))
-  goClause cl@AG.Clause{..} = do
-    let clauseVars = AG.vars cl
+    timeEnv <- runFreshVarMT sentVars (freshTimeEnv metadata sent)
 
-    timeEnv <- runFreshVarMT clauseVars (freshTimeEnv metadata cl)
-
-    runClauseM clauseVars timeEnv $ do
-      newHead <- goHead _head
-      newBody <- goBody _body
-      pure AG.Clause {_head = newHead, _body = newBody,..}
+    runClauseM sentVars timeEnv $
+      case sent of
+        AG.SClause AG.Clause{..} -> do
+          newHead <- goHead _head
+          newBody <- goBody _body
+          pure $ AG.SClause AG.Clause {_head = newHead, _body = newBody,..}
+        AG.SFact AG.Fact{..} -> do
+          newHead <- goHead _head
+          pure $ AG.SFact AG.Fact{_head = newHead,..}
+        AG.SQuery AG.Query{..} -> do
+          newBody <- goBody _body
+          AG.SQuery <$> case _head of
+            Nothing -> pure $ AG.Query{_head = Nothing, _body = newBody,..}
+            Just _ ->
+              lift $ lift $ lift $ Log.scream (Just $ span sent)
+                "There shouldn't be any named queries at this stage."
 
   compileAtom :: AtomicFormula Term -> ClauseM (AtomicFormula Term)
   compileAtom atom = do
