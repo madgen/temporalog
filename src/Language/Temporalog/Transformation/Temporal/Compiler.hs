@@ -101,8 +101,8 @@ runClauseM vars timeEnv action =
   runFreshVarMT vars (runTimeEnvMT action timeEnv)
 
 -- |Assembles a clause
-mkClause :: PredicateSymbol              -- |Name of the predicate to define
-         -> [ Term ]                     -- |Argument list
+mkClause :: PredicateSymbol                  -- |Name of the predicate to define
+         -> [ Term ]                         -- |Argument list
          -> AG.Subgoal (BOp 'ATemporal) Term -- |Body formula
          -> AG.Clause (Const Void) (BOp 'ATemporal)
 mkClause headPredSym args body =
@@ -180,13 +180,55 @@ eliminateTemporal metadata program = do
   goBody (SEX span timePredSym child) = do
     timeTerm <- observeClock timePredSym
     nextTimeTerm <- TVar <$> lift freshVar
-    let accessibility =
-          AtomicFormula{ _span = span
-                       , _predSym = timePredSym
-                       , _terms = [ timeTerm, nextTimeTerm ]}
+
+    -- Advance the time
+    let accAtom = accessibilityAtom timePredSym timeTerm nextTimeTerm
+
+    -- Evaluate the child with advanced time
     newChild <- setClock timePredSym nextTimeTerm (goBody child)
-    pure $ SConj span (SAtom span accessibility) newChild
-  goBody _ = _
+
+    pure $ SConj span accAtom newChild
+  goBody (SEU span timePredSym phi psi) = do
+    auxPredSym   <- (lift . lift) freshPredSym
+    timeTerm     <- observeClock timePredSym
+    nextTimeTerm <- TVar <$> lift freshVar
+
+    phi' <- goBody phi
+    psi' <- goBody psi
+
+    let params = TVar <$> vars phi <> vars psi
+
+    let auxAtom = SAtom span
+          AtomicFormula{ _span = span
+                       , _predSym = auxPredSym
+                       , _terms = params
+                       }
+
+    -- Generate auxillary clauses
+    lift $ lift $ addClause $ mkClause auxPredSym params psi'
+
+    -- If the time term is a variable substitute (advance time), otherwise nop.
+    recAuxAtom <- case timeTerm of
+       TVar var -> subst' var nextTimeTerm auxAtom
+       _        -> pure auxAtom
+
+    let accAtom = accessibilityAtom timePredSym timeTerm nextTimeTerm
+
+    lift $ lift $ addClause $ mkClause auxPredSym params
+      (SConj span accAtom (SConj span phi' recAuxAtom))
+
+    -- Compile by calling the auxillary clause
+    pure auxAtom
+
+accessibilityAtom :: PredicateSymbol
+                  -> Term
+                  -> Term
+                  -> AG.Subgoal (BOp 'ATemporal) Term
+accessibilityAtom predSym now next =
+  SAtom dummySpan (AtomicFormula { _span = dummySpan
+                                 , _predSym = predSym
+                                 , _terms = [now, next]
+                                 })
 
 subst' :: Var
        -> Term
