@@ -6,7 +6,6 @@ v(2,4).
 .decl q(int) @ v.
 q(1000) @ v 2.
 q(2000) @ v 3.
-q(3000) @ v 4.
 
-.decl p @ v.
-p :- EX v EX v q(X).
+?- EX v q(X).
+?- EX v EX v q(X).
