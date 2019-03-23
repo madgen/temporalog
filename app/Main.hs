@@ -37,8 +37,8 @@ stageParser =
  <|> stageFlag' TemporalParse    "parse"         "Parse"
  <|> stageFlag' TemporalMeta     "metadata"      "Dump metadata"
  <|> stageFlag' TemporalNoDecl   "no-decl"       "Remove declarations"
+ <|> stageFlag' TemporalNoTime   "no-time"       "Eliminate temporal ops"
  <|> stageFlag' TemporalType     "typecheck"     "Type check"
- <|> stageFlag' TemporalNoTime   "notime"        "Eliminate temporal ops"
  <|> stageFlag' VanillaNormal    "normal"        "Normalise"
  <|> stageFlag' Exalog           "exalog"        "Compiled Exalog program"
 
