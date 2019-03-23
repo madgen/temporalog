@@ -8,6 +8,7 @@ module Language.Temporalog.Stage
   , typeChecked
   , namedQueries
   , noTemporal
+  , vanilla
   , normalised
   , compiled
   ) where
@@ -35,6 +36,7 @@ import qualified Language.Temporalog.Parser.Parser as Parser
 import           Language.Temporalog.Transformation.Declaration (removeDecls)
 import           Language.Temporalog.Transformation.Temporal.Identities (applyTemporalIdentities)
 import           Language.Temporalog.Transformation.Temporal.Compiler (eliminateTemporal)
+import           Language.Temporalog.Transformation.Temporal.Vanilla (toVanilla)
 import           Language.Temporalog.TypeChecker (typeCheck)
 
 type Stage a = FilePath -> BS.ByteString -> Log.LoggerM a
@@ -60,12 +62,15 @@ noTemporal file bs = do
   ast' <- eliminateTemporal meta (applyTemporalIdentities ast)
   pure (meta, ast')
 
-removeTemporal :: Stage (MD.Metadata, VA.Program)
-removeTemporal = _
+vanilla :: Stage (MD.Metadata, VA.Program)
+vanilla file bs = do
+  (meta, ast) <- noTemporal file bs
+  ast' <- toVanilla ast
+  pure (meta, ast')
 
 rangeRestricted :: Stage (MD.Metadata, VA.Program)
 rangeRestricted file bs = do
-  res@(meta, ast) <- removeTemporal file bs
+  res@(meta, ast) <- vanilla file bs
   checkRangeRestriction ast
   pure res
 
