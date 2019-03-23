@@ -149,6 +149,7 @@ pattern SBodyJumpF span child timePredSym time = AG.SUnOpF span (BodyJump timePr
 
 instance HasPrecedence (BOp a) where
   precedence AG.NoOp                 = 0
+  precedence (AG.SomeOp Dogru)       = 0
   precedence (AG.SomeOp Negation)    = 1
   precedence (AG.SomeOp EX{})        = 1
   precedence (AG.SomeOp EF{})        = 1
