@@ -46,7 +46,7 @@ toVanilla AG.Program{..} =
     Log.scream (Just span) "True should have been eliminated by now."
 
 cleanseDogru :: A.Subgoal (BOp 'ATemporal) Term
-                   -> A.Subgoal (BOp 'ATemporal) Term
+             -> A.Subgoal (BOp 'ATemporal) Term
 cleanseDogru = cata alg
   where
   alg :: Algebra (Base (A.Subgoal (BOp 'ATemporal) Term))
