@@ -199,7 +199,7 @@ eliminateTemporal metadata program = do
     phi' <- goBody phi
     psi' <- goBody psi
 
-    let params = TVar <$> vars phi <> vars psi
+    let params = TVar <$> vars phi' <> vars psi'
 
     let auxAtom = SAtom span
           AtomicFormula{ _span = span
@@ -231,7 +231,7 @@ eliminateTemporal metadata program = do
     phi' <- goBody phi
 
     -- A subset of parameters for aux1 and aux2
-    let params = TVar <$> vars phi
+    let params = TVar <$> vars phi'
 
     -- Generate auxillary clauses
 
