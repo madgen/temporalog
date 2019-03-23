@@ -28,6 +28,7 @@ data Stage =
   | TemporalNoDecl
   | TemporalType
   | TemporalNoTime
+  | Vanilla
   | VanillaNormal
   | Exalog
 
@@ -39,6 +40,7 @@ stageParser =
  <|> stageFlag' TemporalNoDecl   "no-decl"       "Remove declarations"
  <|> stageFlag' TemporalNoTime   "no-time"       "Eliminate temporal ops"
  <|> stageFlag' TemporalType     "typecheck"     "Type check"
+ <|> stageFlag' Vanilla          "vanilla"       "Vanilla"
  <|> stageFlag' VanillaNormal    "normal"        "Normalise"
  <|> stageFlag' Exalog           "exalog"        "Compiled Exalog program"
 
