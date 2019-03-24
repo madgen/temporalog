@@ -176,7 +176,7 @@ eliminateTemporal metadata program = do
     setClock timePredSym time (goBody child)
   goBody (SBind span timePredSym var child) = do
     timeTerm <- observeClock timePredSym
-    newChild <- subst' var timeTerm child
+    newChild <- subst var timeTerm child
     goBody child
   -- Temporal operators
   goBody (SEX span timePredSym child) = do
@@ -210,7 +210,7 @@ eliminateTemporal metadata program = do
     -- Generate auxillary clauses
     lift $ lift $ addClause $ AG.Clause span auxAtom psi'
 
-    recAuxAtom <- subst'' timeTerm nextTimeTerm auxAtom
+    recAuxAtom <- subst' timeTerm nextTimeTerm auxAtom
 
     let accAtom = accessibilityAtom timePredSym timeTerm nextTimeTerm
 
@@ -231,7 +231,7 @@ eliminateTemporal metadata program = do
     phi' <- goBody phi
 
     -- A subset of parameters for aux1 and aux2
-    let params = TVar <$> vars phi'
+    let params = TVar <$> vars phi
 
     -- Generate auxillary clauses
 
@@ -249,8 +249,8 @@ eliminateTemporal metadata program = do
 
     -- Inductive case:
     -- Work backwards to find other points it doesn't hold
-    recAux2Atom  <- subst' z (TVar y) aux2Atom
-    phi'Advanced <- subst'' x (TVar y) phi'
+    recAux2Atom  <- subst z (TVar y) aux2Atom
+    phi'Advanced <- subst' x (TVar y) phi'
     let accAtom2 = accessibilityAtom timePredSym (TVar y) (TVar z)
 
     lift $ lift $ addClause $ AG.Clause span aux2Atom
@@ -284,7 +284,7 @@ eliminateTemporal metadata program = do
 
     let accAtom1 = accessibilityAtom timePredSym x (TVar y)
 
-    aux1AtomAdvanced <- subst'' x (TVar y) aux1Atom
+    aux1AtomAdvanced <- subst' x (TVar y) aux1Atom
 
     lift $ lift $ addClause $ AG.Clause span aux1Atom
       (SConj span aux1AtomAdvanced
@@ -306,26 +306,26 @@ accessibilityAtom predSym now next =
 
 -- |A substitution that allows a constant to be the thing to be replaced.
 -- It simply ignores it.
-subst'' :: Term
-        -> Term
-        -> Subgoal (BOp a) Term
-        -> ClauseM (Subgoal (BOp a) Term)
-subst'' key val exp =
-  case key of
-    TVar v -> subst' v val exp
-    _      -> pure exp
-
-subst' :: Var
+subst' :: Term
        -> Term
        -> Subgoal (BOp a) Term
        -> ClauseM (Subgoal (BOp a) Term)
-subst' var term sub =
+subst' key val exp =
+  case key of
+    TVar v -> subst v val exp
+    _      -> pure exp
+
+subst :: Var
+      -> Term
+      -> Subgoal (BOp a) Term
+      -> ClauseM (Subgoal (BOp a) Term)
+subst var term sub =
   case sub of
     AG.SAtom{..} -> pure
       AG.SAtom{_atom = _atom {_terms = substParams var term (_terms _atom)},..}
     SBodyJump span child timePredSym time -> do
       let newTime = if time == TVar var then term else time
-      newChild <- subst' var term child
+      newChild <- subst var term child
       pure $ SBodyJump span newChild timePredSym newTime
     SBind span timePredSym var' child
       -- No free occurrences of var in this child
@@ -334,17 +334,17 @@ subst' var term sub =
       | TVar var'' <- term
       , var' == var'' -> do
         alphaVar <- lift freshVar
-        alphaChild <- subst' var' (TVar alphaVar) child
-        newChild <- subst' var term alphaChild
+        alphaChild <- subst var' (TVar alphaVar) child
+        newChild <- subst var term alphaChild
         pure $ SBind span timePredSym alphaVar newChild
       -- No risk of capture, continue recursing
-      | otherwise -> SBind span timePredSym var <$> subst' var term child
+      | otherwise -> SBind span timePredSym var <$> subst var term child
     -- Boring cases:
     s@AG.SNullOp{} -> pure s
-    AG.SUnOp{..}   -> (\c -> AG.SUnOp{_child = c,..}) <$> subst' var term _child
+    AG.SUnOp{..}   -> (\c -> AG.SUnOp{_child = c,..}) <$> subst var term _child
     AG.SBinOp{..}  -> (\c1 c2 -> AG.SBinOp{_child1 = c1, _child2 = c2,..})
-                  <$> subst' var term _child1
-                  <*> subst' var term _child2
+                  <$> subst var term _child1
+                  <*> subst var term _child2
 
 substParams :: Var -> Term -> [ Term ] -> [ Term ]
 substParams var term = map (\case
