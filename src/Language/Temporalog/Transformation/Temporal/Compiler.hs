@@ -11,6 +11,7 @@ import Protolude
 import Control.Arrow ((>>>))
 
 import           Data.Functor.Foldable (Base, cata, embed, ana, project)
+import           Data.List (nub)
 import           Data.Text (pack)
 import qualified Data.Map.Strict as M
 
@@ -141,7 +142,7 @@ eliminateTemporal metadata program = do
     phi' <- goBody phi
     psi' <- goBody psi
 
-    let params = TVar <$> vars phi' <> vars psi'
+    let params = TVar <$> nub (vars phi' <> vars psi')
 
     let auxAtom = SAtom span
           AtomicFormula{ _span = span
