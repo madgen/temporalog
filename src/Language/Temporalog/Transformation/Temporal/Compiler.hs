@@ -121,6 +121,20 @@ addVarType var termType = do
         pp termType <> " and " <> pp termType'
     Nothing -> lift $ modify (M.insert var termType)
 
+addTimeVarType :: MD.Metadata -> Var -> AG.PredicateSymbol -> ClauseM ()
+addTimeVarType metadata var timePredSym = do
+  predInfo <- lift . lift . lift . lift $ timePredSym `MD.lookupM` metadata
+  case MD.typ predInfo of
+    [ termType, _ ] -> addVarType var termType
+    ts              -> lift . lift . lift . lift $
+      Log.scream (Just $ span var) "Time predicate does not has arity 2."
+
+freshTypedTimeVar :: MD.Metadata -> AG.PredicateSymbol -> ClauseM Var
+freshTypedTimeVar metadata timePredSym = do
+  var <- lift $ lift freshVar
+  addTimeVarType metadata var timePredSym
+  pure var
+
 initTypeEnv :: MD.Metadata -> AG.Sentence a b -> ClauseM ()
 initTypeEnv metadata sentence = do
   let atoms = AG.atoms sentence
@@ -134,13 +148,7 @@ initTypeEnv metadata sentence = do
   timeEnv <- getTimeEnv
   forM_ (M.toList timeEnv) $ \(timePredSym, term) ->
     case term of
-      TVar var -> do
-        predInfo <- lift . lift . lift . lift $ timePredSym `MD.lookupM` metadata
-        case MD.typ predInfo of
-          [ termType, _ ] -> addVarType var termType
-          ts              -> lift . lift . lift . lift $
-            Log.scream (Just $ span sentence)
-              "Time predicate does not has arity 2."
+      TVar var -> addTimeVarType metadata var timePredSym
       _        -> lift . lift . lift . lift $
         Log.scream (Just $ span sentence)
           "Initial time environment contains a non-var."
@@ -230,7 +238,7 @@ eliminateTemporal metadata program = do
   -- Temporal operators
   goBody (SEX span timePredSym child) = do
     timeTerm <- observeClock timePredSym
-    nextTimeTerm <- TVar <$> (lift . lift) freshVar
+    nextTimeTerm <- TVar <$> freshTypedTimeVar metadata timePredSym
 
     -- Advance the time
     let accAtom = accessibilityAtom timePredSym timeTerm nextTimeTerm
@@ -243,7 +251,7 @@ eliminateTemporal metadata program = do
     -- Get an axuillary predicate and its de facto atom
     auxPredSym   <- (lift . lift . lift) freshPredSym
     timeTerm     <- observeClock timePredSym
-    nextTimeTerm <- TVar <$> (lift . lift) freshVar
+    nextTimeTerm <- TVar <$> freshTypedTimeVar metadata timePredSym
 
     phi' <- goBody phi
     psi' <- goBody psi
@@ -275,7 +283,7 @@ eliminateTemporal metadata program = do
     x <- observeClock timePredSym
 
     -- auxillary variables used to advance time (among other things)
-    [y, z] <- replicateM 2 $ (lift . lift) freshVar
+    [y, z] <- replicateM 2 $ freshTypedTimeVar metadata timePredSym
 
     phi' <- goBody phi
 
