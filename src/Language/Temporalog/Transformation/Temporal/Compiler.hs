@@ -8,7 +8,6 @@ module Language.Temporalog.Transformation.Temporal.Compiler
 
 import Protolude
 
-
 import Control.Arrow ((>>>))
 
 import           Data.Functor.Foldable (Base, cata, embed, ana, project)
@@ -52,6 +51,9 @@ type TimeEnvMT = ReaderT TimeEnv
 runTimeEnvMT :: Monad m => TimeEnvMT m a -> TimeEnv -> m a
 runTimeEnvMT = runReaderT
 
+getTimeEnv :: Monad m => TimeEnvMT m TimeEnv
+getTimeEnv = ask
+
 setClock :: Monad m
          => AG.PredicateSymbol -> Term -> TimeEnvMT m a -> TimeEnvMT m a
 setClock predSym time = local (M.insert predSym time)
@@ -60,7 +62,7 @@ observeClock :: AG.PredicateSymbol -> ClauseM Term
 observeClock predSym = do
   env <- ask
   maybe
-    ( lift . lift . lift
+    ( lift . lift . lift . lift
     $ Log.scream Nothing (pp predSym <> " is not a key in the time environment.")
     )
     pure
@@ -98,11 +100,56 @@ freshTimeEnv metadata sent = do
   timePredSymsM = concatMap MD.timingPreds
               <$> traverse (`MD.lookupM` metadata) predSyms
 
-type ClauseM = TimeEnvMT (FreshVarMT (CompilerMT Log.LoggerM))
+type TypeEnv = M.Map Var TermType
+
+type TypeEnvMT = StateT TypeEnv
+
+evalTypeEnvMT :: Monad m => TypeEnvMT m a -> m a
+evalTypeEnvMT action = evalStateT action M.empty
+
+getType :: Monad m => Var -> TypeEnvMT m (Maybe TermType)
+getType var = M.lookup var <$> get
+
+addVarType :: Var -> TermType -> ClauseM ()
+addVarType var termType = do
+  mType <- lift $ getType var
+  case mType of
+    Just termType'
+      | termType == termType -> pure ()
+      | otherwise -> lift . lift . lift . lift $ Log.scream Nothing $
+        "Variable " <> pp var <> " cannot have two types: " <>
+        pp termType <> " and " <> pp termType'
+    Nothing -> lift $ modify (M.insert var termType)
+
+initTypeEnv :: MD.Metadata -> AG.Sentence a b -> ClauseM ()
+initTypeEnv metadata sentence = do
+  let atoms = AG.atoms sentence
+  forM_ atoms $ \AtomicFormula{..} -> do
+    predInfo <- lift . lift . lift . lift $ _predSym `MD.lookupM` metadata
+    let varsTypes = (`mapMaybe` zip _terms (MD.typ predInfo)) $ \case
+          (TVar var, termType) -> Just (var,termType)
+          _                    -> Nothing
+    traverse (uncurry addVarType) varsTypes
+
+  timeEnv <- getTimeEnv
+  forM_ (M.toList timeEnv) $ \(timePredSym, term) ->
+    case term of
+      TVar var -> do
+        predInfo <- lift . lift . lift . lift $ timePredSym `MD.lookupM` metadata
+        case MD.typ predInfo of
+          [ termType, _ ] -> addVarType var termType
+          ts              -> lift . lift . lift . lift $
+            Log.scream (Just $ span sentence)
+              "Time predicate does not has arity 2."
+      _        -> lift . lift . lift . lift $
+        Log.scream (Just $ span sentence)
+          "Initial time environment contains a non-var."
+
+type ClauseM = TimeEnvMT (TypeEnvMT (FreshVarMT (CompilerMT Log.LoggerM)))
 
 runClauseM :: [ Var ] -> TimeEnv -> ClauseM a -> CompilerMT Log.LoggerM a
 runClauseM vars timeEnv action =
-  runFreshVarMT vars (runTimeEnvMT action timeEnv)
+  runFreshVarMT vars (evalTypeEnvMT (runTimeEnvMT action timeEnv))
 
 eliminateTemporal :: MD.Metadata
                   -> AG.Program Void HOp (BOp 'Temporal)
@@ -132,7 +179,9 @@ eliminateTemporal metadata program = do
 
     (timeEnv, newTimeVars) <- runFreshVarMT sentVars (freshTimeEnv metadata sent)
 
-    runClauseM (sentVars <> newTimeVars) timeEnv $
+    runClauseM (sentVars <> newTimeVars) timeEnv $ do
+      initTypeEnv metadata sent
+
       case sent of
         AG.SClause AG.Clause{..} -> do
           newHead <- goHead _head
@@ -146,13 +195,13 @@ eliminateTemporal metadata program = do
           AG.SQuery <$> case _head of
             Nothing -> pure $ AG.Query{_head = Nothing, _body = newBody,..}
             Just _ ->
-              lift $ lift $ lift $ Log.scream (Just $ span sent)
+              lift $ lift $ lift $ lift $ Log.scream (Just $ span sent)
                 "There shouldn't be any named queries at this stage."
 
   compileAtom :: AtomicFormula Term -> ClauseM (AtomicFormula Term)
   compileAtom atom = do
     timings <- MD.timingPreds
-           <$> (lift . lift . lift) (#_predSym atom `MD.lookupM` metadata)
+           <$> (lift . lift . lift . lift) (#_predSym atom `MD.lookupM` metadata)
     timeTerms <- traverse observeClock timings
     pure $ atom {_terms = _terms atom <> timeTerms}
 
@@ -181,7 +230,7 @@ eliminateTemporal metadata program = do
   -- Temporal operators
   goBody (SEX span timePredSym child) = do
     timeTerm <- observeClock timePredSym
-    nextTimeTerm <- TVar <$> lift freshVar
+    nextTimeTerm <- TVar <$> (lift . lift) freshVar
 
     -- Advance the time
     let accAtom = accessibilityAtom timePredSym timeTerm nextTimeTerm
@@ -192,9 +241,9 @@ eliminateTemporal metadata program = do
     pure $ SConj span accAtom newChild
   goBody (SEU span timePredSym phi psi) = do
     -- Get an axuillary predicate and its de facto atom
-    auxPredSym   <- (lift . lift) freshPredSym
+    auxPredSym   <- (lift . lift . lift) freshPredSym
     timeTerm     <- observeClock timePredSym
-    nextTimeTerm <- TVar <$> lift freshVar
+    nextTimeTerm <- TVar <$> (lift . lift) freshVar
 
     phi' <- goBody phi
     psi' <- goBody psi
@@ -208,25 +257,25 @@ eliminateTemporal metadata program = do
                        }
 
     -- Generate auxillary clauses
-    lift $ lift $ addClause $ AG.Clause span auxAtom psi'
+    lift $ lift $ lift $ addClause $ AG.Clause span auxAtom psi'
 
     recAuxAtom <- subst' timeTerm nextTimeTerm auxAtom
 
     let accAtom = accessibilityAtom timePredSym timeTerm nextTimeTerm
 
-    lift $ lift $ addClause $ AG.Clause span auxAtom
+    lift $ lift $ lift $ addClause $ AG.Clause span auxAtom
       (SConj span accAtom (SConj span phi' recAuxAtom))
 
     -- Compile by calling the auxillary clause
     pure auxAtom
   goBody (SAF span timePredSym phi) = do
-    [aux1PredSym, aux2PredSym]  <- replicateM 2 $ (lift . lift) freshPredSym
+    [aux1PredSym, aux2PredSym]  <- replicateM 2 $ (lift . lift . lift) freshPredSym
 
     -- x is the time term (maybe not even a variable)
     x <- observeClock timePredSym
 
     -- auxillary variables used to advance time (among other things)
-    [y, z] <- replicateM 2 $ lift freshVar
+    [y, z] <- replicateM 2 $ (lift . lift) freshVar
 
     phi' <- goBody phi
 
@@ -244,7 +293,7 @@ eliminateTemporal metadata program = do
 
     -- Base case:
     -- Find a point phi doesn't hold
-    lift $ lift $ addClause $ AG.Clause span aux2Atom
+    lift $ lift $ lift $ addClause $ AG.Clause span aux2Atom
       (SConj span (SNeg span phi') (accessibilityAtom timePredSym x (TVar z)))
 
     -- Inductive case:
@@ -253,7 +302,7 @@ eliminateTemporal metadata program = do
     phi'Advanced <- subst' x (TVar y) phi'
     let accAtom2 = accessibilityAtom timePredSym (TVar y) (TVar z)
 
-    lift $ lift $ addClause $ AG.Clause span aux2Atom
+    lift $ lift $ lift $ addClause $ AG.Clause span aux2Atom
       (SConj span recAux2Atom
                   (SConj span (SNeg span phi'Advanced)
                               accAtom2))
@@ -276,7 +325,7 @@ eliminateTemporal metadata program = do
                        , _terms = params <> [ x ]
                        }
 
-    lift $ lift $ addClause $ AG.Clause span aux1Atom loopyAux2Atom
+    lift $ lift $ lift $ addClause $ AG.Clause span aux1Atom loopyAux2Atom
 
     -- Inductive case:
     -- Work backwards again but not for loops just for paths that lead to
@@ -286,7 +335,7 @@ eliminateTemporal metadata program = do
 
     aux1AtomAdvanced <- subst' x (TVar y) aux1Atom
 
-    lift $ lift $ addClause $ AG.Clause span aux1Atom
+    lift $ lift $ lift $ addClause $ AG.Clause span aux1Atom
       (SConj span aux1AtomAdvanced
                   (SConj span (SNeg span phi')
                               accAtom1))
@@ -333,7 +382,7 @@ subst var term sub =
       -- Substitution would capture, so alpha rename the Bind expression
       | TVar var'' <- term
       , var' == var'' -> do
-        alphaVar <- lift freshVar
+        alphaVar <- (lift . lift) freshVar
         alphaChild <- subst var' (TVar alphaVar) child
         newChild <- subst var term alphaChild
         pure $ SBind span timePredSym alphaVar newChild
