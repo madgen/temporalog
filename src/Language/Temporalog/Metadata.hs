@@ -7,6 +7,7 @@ module Language.Temporalog.Metadata
   ( Metadata
   , PredicateInfo
   , processMetadata
+  , addAtemporal
   , lookup
   , lookupM
   , typ
@@ -63,6 +64,11 @@ lookupM predSym metadata =
   case predSym `lookup` metadata of
     Just predInfo -> pure predInfo
     Nothing -> Log.scream Nothing $ "No metadata for " <> pp predSym <> "."
+
+-- |Enter new predicate metadata
+addAtemporal :: AG.PredicateSymbol -> [ TermType ] -> Metadata -> Metadata
+addAtemporal predSym predType =
+  M.insert predSym (PredicateInfo { _originalType = predType, _timings = [] })
 
 -- |Extract metadata from declarations
 processMetadata :: Program -> Log.LoggerM Metadata

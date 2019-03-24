@@ -25,27 +25,48 @@ import qualified Language.Temporalog.Metadata as MD
 
 eliminateTemporal :: MD.Metadata
                   -> AG.Program Void HOp (BOp 'Temporal)
-                  -> Log.LoggerM (AG.Program Void (Const Void) (BOp 'ATemporal))
+                  -> Log.LoggerM ( MD.Metadata
+                                 , AG.Program Void (Const Void) (BOp 'ATemporal)
+                                 )
 eliminateTemporal metadata program = do
   let predSyms = map #_predSym (AG.atoms program :: [ AG.AtomicFormula Term ])
-  (newProgram, newClauses) <- runCompilerMT (goPr program) predSyms
+  ((newProgram, newPredEnv), newClauses) <- runCompilerMT (goPr program) predSyms
+
   let newStatements = AG.StSentence . AG.SClause <$> newClauses
-  pure (newProgram {AG._statements = AG._statements newProgram <> newStatements})
+
+  let newMetadata =
+        foldr' (uncurry MD.addAtemporal) metadata (M.toList newPredEnv)
+
+  pure
+    ( newMetadata
+    , newProgram {AG._statements = AG._statements newProgram <> newStatements}
+    )
   where
   goPr :: AG.Program Void HOp (BOp 'Temporal)
-       -> CompilerMT Log.LoggerM (AG.Program Void (Const Void) (BOp 'ATemporal))
+       -> CompilerMT Log.LoggerM
+                     ( AG.Program Void (Const Void) (BOp 'ATemporal)
+                     , PredTypeEnv
+                     )
   goPr AG.Program{..} = do
-    newStatements <- traverse goSt _statements
-    pure AG.Program{_statements = newStatements,..}
+    (newStatements, predTypeEnvs) <- unzip <$> traverse goSt _statements
+    pure ( AG.Program{_statements = newStatements,..}
+         , M.unions predTypeEnvs
+         )
 
   goSt :: AG.Statement Void HOp (BOp 'Temporal)
-       -> CompilerMT Log.LoggerM (AG.Statement Void (Const Void) (BOp 'ATemporal))
+       -> CompilerMT Log.LoggerM
+                     ( AG.Statement Void (Const Void) (BOp 'ATemporal)
+                     , PredTypeEnv
+                     )
   goSt AG.StSentence{..} =
-    (\s -> AG.StSentence{_sentence = s,..}) <$> goSent _sentence
+    first (\s -> AG.StSentence{_sentence = s,..}) <$> goSent _sentence
   goSt AG.StDeclaration{..} = absurd _declaration
 
   goSent :: AG.Sentence HOp (BOp 'Temporal)
-         -> CompilerMT Log.LoggerM (AG.Sentence (Const Void) (BOp 'ATemporal))
+         -> CompilerMT Log.LoggerM
+                       ( AG.Sentence (Const Void) (BOp 'ATemporal)
+                       , PredTypeEnv
+                       )
   goSent sent = do
     let sentVars = AG.vars sent
 
@@ -128,6 +149,8 @@ eliminateTemporal metadata program = do
                        , _terms = params
                        }
 
+    addAtomType (AG._atom auxAtom)
+
     -- Generate auxillary clauses
     lift $ lift $ lift $ addClause $ AG.Clause span auxAtom psi'
 
@@ -163,6 +186,8 @@ eliminateTemporal metadata program = do
                        , _terms = params <> [ TVar z ]
                        }
 
+    addAtomType (AG._atom aux2Atom)
+
     -- Base case:
     -- Find a point phi doesn't hold
     lift $ lift $ lift $ addClause $ AG.Clause span aux2Atom
@@ -185,6 +210,8 @@ eliminateTemporal metadata program = do
                        , _predSym = aux1PredSym
                        , _terms = params
                        }
+
+    addAtomType (AG._atom aux1Atom)
 
     -- Base case:
     -- Find a handle on the loop using aux2
@@ -352,15 +379,30 @@ freshTimeEnv metadata sent = do
   timePredSymsM = concatMap MD.timingPreds
               <$> traverse (`MD.lookupM` metadata) predSyms
 
-type TypeEnv = M.Map Var TermType
+type VarTypeEnv  = M.Map Var                TermType
+type PredTypeEnv = M.Map AG.PredicateSymbol [ TermType ]
+
+type TypeEnv = (VarTypeEnv, PredTypeEnv)
 
 type TypeEnvMT = StateT TypeEnv
 
-evalTypeEnvMT :: Monad m => TypeEnvMT m a -> m a
-evalTypeEnvMT action = evalStateT action M.empty
+runTypeEnvMT :: Monad m => TypeEnvMT m a -> m (a, PredTypeEnv)
+runTypeEnvMT action = second snd <$> runStateT action (M.empty, M.empty)
+
+addAtomType :: AG.AtomicFormula Term -> ClauseM ()
+addAtomType AG.AtomicFormula{..} = do
+  types <- (`traverse` _terms) $ \case
+    TVar v -> do
+      mType <- lift $ getType v
+      maybe
+        (lift . lift . lift . lift $ Log.scream (Just _span) $
+          "Type of " <> pp v <> " is unknown.") pure mType
+    TSym s -> pure $ AG.termType s
+
+  lift $ modify (second (M.insert _predSym types))
 
 getType :: Monad m => Var -> TypeEnvMT m (Maybe TermType)
-getType var = M.lookup var <$> get
+getType var = M.lookup var . fst <$> get
 
 addVarType :: Var -> TermType -> ClauseM ()
 addVarType var termType = do
@@ -371,7 +413,7 @@ addVarType var termType = do
       | otherwise -> lift . lift . lift . lift $ Log.scream Nothing $
         "Variable " <> pp var <> " cannot have two types: " <>
         pp termType <> " and " <> pp termType'
-    Nothing -> lift $ modify (M.insert var termType)
+    Nothing -> lift $ modify (first (M.insert var termType))
 
 addTimeVarType :: MD.Metadata -> Var -> AG.PredicateSymbol -> ClauseM ()
 addTimeVarType metadata var timePredSym = do
@@ -407,7 +449,9 @@ initTypeEnv metadata sentence = do
 
 type ClauseM = TimeEnvMT (TypeEnvMT (FreshVarMT (CompilerMT Log.LoggerM)))
 
-runClauseM :: [ Var ] -> TimeEnv -> ClauseM a -> CompilerMT Log.LoggerM a
+runClauseM :: [ Var ]
+           -> TimeEnv
+           -> ClauseM a
+           -> CompilerMT Log.LoggerM (a, PredTypeEnv)
 runClauseM vars timeEnv action =
-  runFreshVarMT vars (evalTypeEnvMT (runTimeEnvMT action timeEnv))
-
+  runFreshVarMT vars (runTypeEnvMT (runTimeEnvMT action timeEnv))
