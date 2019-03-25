@@ -122,17 +122,17 @@ eliminateTemporal metadata program = do
     newChild <- subst var timeTerm child
     goBody child
   -- Temporal operators
-  goBody (SEX span timePredSym child) = do
-    timeTerm <- observeClock timePredSym
-    nextTimeTerm <- TVar <$> freshTypedTimeVar metadata timePredSym
+  goBody (SEX span timePredSym phi) = do
+    x <- observeClock timePredSym
+    y <- TVar <$> freshTypedTimeVar metadata timePredSym
 
     -- Advance the time
-    let accAtom = accessibilityAtom timePredSym timeTerm nextTimeTerm
+    let accAtom = accessibilityAtom timePredSym x y
 
     -- Evaluate the child with advanced time
-    newChild <- setClock timePredSym nextTimeTerm (goBody child)
+    phi' <- setClock timePredSym y (goBody phi)
 
-    pure $ SConj span accAtom newChild
+    pure $ SConj span accAtom phi'
   goBody (SEU span timePredSym phi psi) = do
     -- Get an axuillary predicate and its de facto atom
     auxPredSym <- (lift . lift . lift) freshPredSym
