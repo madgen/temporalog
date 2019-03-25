@@ -398,12 +398,12 @@ freshTimeEnv metadata sent = do
   bodyTimePreds (SBodyJump _ phi timePred _) =
     (timePred :) <$> bodyTimePreds phi
   bodyTimePreds (SBind _ timePred _ phi) = (timePred :) <$> bodyTimePreds phi
-  bodyTimePreds (SEX _ timePred phi)   = (timePred :) <$> bodyTimePreds phi
-  bodyTimePreds (SAX _ timePred phi)   = (timePred :) <$> bodyTimePreds phi
-  bodyTimePreds (SEF _ timePred phi)   = (timePred :) <$> bodyTimePreds phi
-  bodyTimePreds (SAF _ timePred phi)   = (timePred :) <$> bodyTimePreds phi
-  bodyTimePreds (SEG _ timePred phi)   = (timePred :) <$> bodyTimePreds phi
-  bodyTimePreds (SAG _ timePred phi)   = (timePred :) <$> bodyTimePreds phi
+  bodyTimePreds (SEX _ timePred phi)     = (timePred :) <$> bodyTimePreds phi
+  bodyTimePreds (SAX _ timePred phi)     = (timePred :) <$> bodyTimePreds phi
+  bodyTimePreds (SEF _ timePred phi)     = (timePred :) <$> bodyTimePreds phi
+  bodyTimePreds (SAF _ timePred phi)     = (timePred :) <$> bodyTimePreds phi
+  bodyTimePreds (SEG _ timePred phi)     = (timePred :) <$> bodyTimePreds phi
+  bodyTimePreds (SAG _ timePred phi)     = (timePred :) <$> bodyTimePreds phi
   bodyTimePreds (SEU _ timePred phi psi) =
     (\xs ys -> timePred : xs <> ys) <$> bodyTimePreds phi <*> bodyTimePreds psi
   bodyTimePreds (SAU _ timePred phi psi) =
