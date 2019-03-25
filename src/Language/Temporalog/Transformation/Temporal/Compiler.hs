@@ -163,7 +163,7 @@ eliminateTemporal metadata program = do
     recAuxAtom <- subst' x y auxAtom
 
     lift $ lift $ lift $ addClause $ AG.Clause span auxAtom
-      (SConj span accAtomXY (SConj span phi' recAuxAtom))
+      (SConj span accAtomXY (SConj span recAuxAtom phi'))
 
     -- Compile by calling the auxillary clause
     pure auxAtom
@@ -195,7 +195,7 @@ eliminateTemporal metadata program = do
     -- Base case:
     -- Find a point phi doesn't hold
     lift $ lift $ lift $ addClause $ AG.Clause span aux2Atom
-      (SConj span (SNeg span phi') (accessibilityAtom timePredSym x (TVar z)))
+      (SConj span (accessibilityAtom timePredSym x (TVar z)) (SNeg span phi'))
 
     -- Inductive case:
     -- Work backwards to find other points it doesn't hold
@@ -204,9 +204,9 @@ eliminateTemporal metadata program = do
     let accAtom2 = accessibilityAtom timePredSym (TVar y) (TVar z)
 
     lift $ lift $ lift $ addClause $ AG.Clause span aux2Atom
-      (SConj span recAux2Atom
-                  (SConj span (SNeg span phi'Advanced)
-                              accAtom2))
+      (SConj span accAtom2
+                  (SConj span recAux2Atom
+                              (SNeg span phi'Advanced)))
 
     -- Finding negative paths to the loop
     let aux1Atom = SAtom span
@@ -239,9 +239,9 @@ eliminateTemporal metadata program = do
     aux1AtomAdvanced <- subst' x (TVar y) aux1Atom
 
     lift $ lift $ lift $ addClause $ AG.Clause span aux1Atom
-      (SConj span aux1AtomAdvanced
-                  (SConj span (SNeg span phi')
-                              accAtom1))
+      (SConj span accAtom1
+                  (SConj span aux1AtomAdvanced
+                              (SNeg span phi')))
 
     pure $ SNeg span aux1Atom
 
