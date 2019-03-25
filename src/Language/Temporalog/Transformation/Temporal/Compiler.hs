@@ -135,9 +135,10 @@ eliminateTemporal metadata program = do
     pure $ SConj span accAtom newChild
   goBody (SEU span timePredSym phi psi) = do
     -- Get an axuillary predicate and its de facto atom
-    auxPredSym   <- (lift . lift . lift) freshPredSym
-    timeTerm     <- observeClock timePredSym
-    nextTimeTerm <- TVar <$> freshTypedTimeVar metadata timePredSym
+    auxPredSym <- (lift . lift . lift) freshPredSym
+
+    x <- observeClock timePredSym
+    y <- TVar <$> freshTypedTimeVar metadata timePredSym
 
     phi' <- goBody phi
     psi' <- goBody psi
@@ -152,15 +153,17 @@ eliminateTemporal metadata program = do
 
     addAtomType (AG._atom auxAtom)
 
+    let accAtomXY = accessibilityAtom timePredSym x y
+    let accAtomYX = accessibilityAtom timePredSym y x
+
     -- Generate auxillary clauses
-    lift $ lift $ lift $ addClause $ AG.Clause span auxAtom psi'
+    lift $ lift $ lift $ addClause $ AG.Clause span auxAtom
+      (SConj span (SDisj span accAtomXY accAtomYX) psi')
 
-    recAuxAtom <- subst' timeTerm nextTimeTerm auxAtom
-
-    let accAtom = accessibilityAtom timePredSym timeTerm nextTimeTerm
+    recAuxAtom <- subst' x y auxAtom
 
     lift $ lift $ lift $ addClause $ AG.Clause span auxAtom
-      (SConj span accAtom (SConj span phi' recAuxAtom))
+      (SConj span accAtomXY (SConj span phi' recAuxAtom))
 
     -- Compile by calling the auxillary clause
     pure auxAtom
