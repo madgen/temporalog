@@ -367,7 +367,7 @@ freshVar = do
   var ix = Var dummySpan ("X" <> pack (show ix))
 
 freshTimeEnv :: MD.Metadata
-             -> AG.Sentence a b
+             -> AG.Sentence HOp (BOp 'Temporal)
              -- The following is super ugly. It's time I switch to
              -- algebraic effects.
              -> FreshVarMT (CompilerMT Log.LoggerM)
@@ -375,13 +375,44 @@ freshTimeEnv :: MD.Metadata
                   , [ Var ] -- Newly generated vars
                   )
 freshTimeEnv metadata sent = do
-  timePredSyms <- lift . lift $ timePredSymsM
+  timePredSyms <- nub <$> (lift . lift) timePredSymsM
+
   freshVars <- replicateM (length timePredSyms) freshVar
   pure (M.fromList $ zip timePredSyms (TVar <$> freshVars), freshVars)
   where
-  predSyms = map #_predSym (AG.atoms sent :: [ AG.AtomicFormula Term])
-  timePredSymsM = concatMap MD.timingPreds
-              <$> traverse (`MD.lookupM` metadata) predSyms
+  timePredSymsM :: Log.LoggerM [ AG.PredicateSymbol ]
+  timePredSymsM =
+    case sent of
+      AG.SClause AG.Clause{..} ->
+        (<>) <$> headTimePreds _head <*> bodyTimePreds _body
+      AG.SQuery  AG.Query{..}  -> bodyTimePreds _body
+      AG.SFact   AG.Fact{..}   -> headTimePreds _head
+
+  headTimePreds :: Subgoal HOp Term -> Log.LoggerM [ AG.PredicateSymbol ]
+  headTimePreds AG.SAtom{..} = atomTimePreds _atom
+  headTimePreds (SHeadJump _ phi predSym _) = (predSym :) <$> headTimePreds phi
+
+  bodyTimePreds :: Subgoal (BOp 'Temporal) Term
+                -> Log.LoggerM [ AG.PredicateSymbol ]
+  bodyTimePreds AG.SAtom{..} = atomTimePreds _atom
+  bodyTimePreds (SBodyJump _ phi timePred _) =
+    (timePred :) <$> bodyTimePreds phi
+  bodyTimePreds (SBind _ timePred _ phi) = (timePred :) <$> bodyTimePreds phi
+  bodyTimePreds (SEX _ timePred phi)   = (timePred :) <$> bodyTimePreds phi
+  bodyTimePreds (SAX _ timePred phi)   = (timePred :) <$> bodyTimePreds phi
+  bodyTimePreds (SEF _ timePred phi)   = (timePred :) <$> bodyTimePreds phi
+  bodyTimePreds (SAF _ timePred phi)   = (timePred :) <$> bodyTimePreds phi
+  bodyTimePreds (SEG _ timePred phi)   = (timePred :) <$> bodyTimePreds phi
+  bodyTimePreds (SAG _ timePred phi)   = (timePred :) <$> bodyTimePreds phi
+  bodyTimePreds (SEU _ timePred phi psi) =
+    (\xs ys -> timePred : xs <> ys) <$> bodyTimePreds phi <*> bodyTimePreds psi
+  bodyTimePreds (SAU _ timePred phi psi) =
+    (\xs ys -> timePred : xs <> ys) <$> bodyTimePreds phi <*> bodyTimePreds psi
+  bodyTimePreds _ = pure []
+
+  atomTimePreds :: AtomicFormula Term -> Log.LoggerM [ AG.PredicateSymbol ]
+  atomTimePreds AtomicFormula{..} =
+    MD.timingPreds <$> _predSym `MD.lookupM` metadata
 
 type VarTypeEnv  = M.Map Var                TermType
 type PredTypeEnv = M.Map AG.PredicateSymbol [ TermType ]
