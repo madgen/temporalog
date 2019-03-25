@@ -408,7 +408,10 @@ freshTimeEnv metadata sent = do
     (\xs ys -> timePred : xs <> ys) <$> bodyTimePreds phi <*> bodyTimePreds psi
   bodyTimePreds (SAU _ timePred phi psi) =
     (\xs ys -> timePred : xs <> ys) <$> bodyTimePreds phi <*> bodyTimePreds psi
-  bodyTimePreds _ = pure []
+  bodyTimePreds AG.SNullOp{}  = pure []
+  bodyTimePreds AG.SUnOp{..}  = bodyTimePreds _child
+  bodyTimePreds AG.SBinOp{..} = (<>) <$> bodyTimePreds _child1
+                                     <*> bodyTimePreds _child2
 
   atomTimePreds :: AtomicFormula Term -> Log.LoggerM [ AG.PredicateSymbol ]
   atomTimePreds AtomicFormula{..} =
