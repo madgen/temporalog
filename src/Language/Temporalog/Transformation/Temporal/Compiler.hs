@@ -71,7 +71,10 @@ eliminateTemporal metadata program = do
   goSent sent = do
     let sentVars = AG.vars sent
 
-    (timeEnv, newTimeVars) <- runFreshVarMT sentVars (freshTimeEnv metadata sent)
+    timePredicates <- lift $ timePreds metadata sent
+
+    (timeEnv, newTimeVars) <-
+      runFreshVarMT sentVars (freshTimeEnv timePredicates)
 
     runClauseM (sentVars <> newTimeVars) timeEnv $ do
       initTypeEnv metadata sent
@@ -366,28 +369,26 @@ freshVar = do
   where
   var ix = Var dummySpan ("X" <> pack (show ix))
 
-freshTimeEnv :: MD.Metadata
-             -> AG.Sentence HOp (BOp 'Temporal)
+freshTimeEnv :: [ AG.PredicateSymbol ]
              -- The following is super ugly. It's time I switch to
              -- algebraic effects.
              -> FreshVarMT (CompilerMT Log.LoggerM)
                   ( TimeEnv
                   , [ Var ] -- Newly generated vars
                   )
-freshTimeEnv metadata sent = do
-  timePredSyms <- nub <$> (lift . lift) timePredSymsM
+freshTimeEnv timePreds = do
+  freshVars <- replicateM (length timePreds) freshVar
+  pure (M.fromList $ zip timePreds (TVar <$> freshVars), freshVars)
 
-  freshVars <- replicateM (length timePredSyms) freshVar
-  pure (M.fromList $ zip timePredSyms (TVar <$> freshVars), freshVars)
+timePreds :: MD.Metadata -> Sentence -> Log.LoggerM [ AG.PredicateSymbol ]
+timePreds metadata sent =
+  case sent of
+    AG.SClause AG.Clause{..} ->
+      (<>) <$> headTimePreds _head <*> bodyTimePreds _body
+    AG.SQuery  AG.Query{..}  -> bodyTimePreds _body
+    AG.SFact   AG.Fact{..}   -> headTimePreds _head
+
   where
-  timePredSymsM :: Log.LoggerM [ AG.PredicateSymbol ]
-  timePredSymsM =
-    case sent of
-      AG.SClause AG.Clause{..} ->
-        (<>) <$> headTimePreds _head <*> bodyTimePreds _body
-      AG.SQuery  AG.Query{..}  -> bodyTimePreds _body
-      AG.SFact   AG.Fact{..}   -> headTimePreds _head
-
   headTimePreds :: Subgoal HOp Term -> Log.LoggerM [ AG.PredicateSymbol ]
   headTimePreds AG.SAtom{..} = atomTimePreds _atom
   headTimePreds (SHeadJump _ phi predSym _) = (predSym :) <$> headTimePreds phi
