@@ -1,0 +1,31 @@
+.decl v(int,int).
+v(1,2).
+v(2,3).
+v(3,4).
+v(4,7).
+v(3,5).
+v(5,6).
+
+.decl q(int) @ v.
+q(1000) @ v 1.
+q(1000) @ v 2.
+q(1000) @ v 3.
+q(1000) @ v 4.
+q(1000) @ v 5.
+q(1000) @ v 6.
+
+q(2000) @ v 6.
+
+.decl pure1(int).
+pure1(1).
+pure1(2).
+pure1(3).
+
+.decl pure2(int).
+pure2(4).
+pure2(5).
+pure2(6).
+
+?- E v [ q(1000) U q(2000) ].   % True at 1,2,3,5,6
+?- E v [ q(1000) U ! q(2000) ]. % True at 1,2,3,4,5,7
+?- E v [ pure1(X) U pure2(X) ]. % True for X = 4;5;6.
