@@ -132,7 +132,7 @@ eliminateTemporal metadata program = do
     t <- observeClock timePredSym
     [ x, y ] <- replicateM 2 $ TVar <$> freshTypedTimeVar metadata timePredSym
 
-    let params = TVar <$> nub (vars phi)
+    let params = TVar <$> nub (freeVars phi)
 
     -- Transition atom
     let transitionAtom = accessibilityAtom timePredSym x y
