@@ -156,17 +156,17 @@ eliminateTemporal metadata program = do
 
     addAtomType (AG._atom auxAtom)
 
-    let accAtomXY = accessibilityAtom timePredSym x y
-    let accAtomYX = accessibilityAtom timePredSym y x
+    groundingTimeAtom <- timeAtom metadata timePredSym x
 
     -- Generate auxillary clauses
     lift $ lift $ lift $ addClause $ AG.Clause span auxAtom
-      (SConj span (SDisj span accAtomXY accAtomYX) psi')
+      (SConj span groundingTimeAtom psi')
 
     recAuxAtom <- subst' x y auxAtom
 
     lift $ lift $ lift $ addClause $ AG.Clause span auxAtom
-      (SConj span accAtomXY (SConj span recAuxAtom phi'))
+      (SConj span (accessibilityAtom timePredSym x y)
+                  (SConj span recAuxAtom phi'))
 
     -- Compile by calling the auxillary clause
     pure auxAtom
@@ -247,6 +247,14 @@ eliminateTemporal metadata program = do
                               (SNeg span phi')))
 
     pure $ SNeg span aux1Atom
+
+timeAtom :: MD.Metadata
+         -> PredicateSymbol
+         -> Term
+         -> ClauseM (Subgoal (BOp 'ATemporal) Term)
+timeAtom metadata predSym timeVar = do
+  wildcard <- freshTypedTimeVar metadata predSym
+  pure $ accessibilityAtom predSym timeVar (TVar wildcard)
 
 accessibilityAtom :: PredicateSymbol
                   -> Term
