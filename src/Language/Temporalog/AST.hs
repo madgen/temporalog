@@ -2,9 +2,12 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Language.Temporalog.AST
   ( Program(..)
@@ -33,10 +36,13 @@ module Language.Temporalog.AST
   , AG.Var(..)
   , AG.Sym(..)
   , AG.vars
+  , freeVars
   , AG.operation
   ) where
 
 import Protolude hiding ((<>), empty)
+
+import Data.Functor.Foldable (Base, cata)
 
 import qualified Data.List.NonEmpty as NE
 
@@ -142,6 +148,61 @@ pattern SEUF span timePredSym child1 child2 = AG.SBinOpF span (EU timePredSym) c
 pattern SBindF     span timePredSym var child  = AG.SUnOpF span (Bind     timePredSym var) child
 pattern SHeadJumpF span child timePredSym time = AG.SUnOpF span (HeadJump timePredSym time) child
 pattern SBodyJumpF span child timePredSym time = AG.SUnOpF span (BodyJump timePredSym time) child
+
+-------------------------------------------------------------------------------
+-- Utility functions
+-------------------------------------------------------------------------------
+
+class AG.HasVariables a => HasFreeVariables a where
+  freeVars :: a -> [ AG.Var ]
+
+instance HasFreeVariables Sentence where
+  freeVars AG.SFact{..}   = freeVars _fact
+  freeVars AG.SClause{..} = freeVars _clause
+  freeVars AG.SQuery{..}  = freeVars _query
+
+instance HasFreeVariables Clause where
+  freeVars AG.Clause{..} = freeVars _head ++ freeVars _body
+
+instance HasFreeVariables Query where
+  freeVars AG.Query{..} = freeVars _body
+
+instance HasFreeVariables Fact where
+  freeVars AG.Fact{..} = freeVars _head
+
+instance HasFreeVariables (AG.AtomicFormula t)
+    => HasFreeVariables (AG.Subgoal HOp t) where
+  freeVars = cata varAlg
+    where
+    varAlg :: Base (AG.Subgoal HOp t) [ AG.Var ] -> [ AG.Var ]
+    varAlg (SHeadJumpF _ vars _ term)   =
+      case term of { AG.TVar v -> v : vars; _ -> vars }
+    varAlg (SAtomF _ atom)              = freeVars atom
+    varAlg (AG.SNullOpF _ _)            = []
+    varAlg (AG.SUnOpF _ _ vars)         = vars
+    varAlg (AG.SBinOpF _ _ vars1 vars2) = vars1 ++ vars2
+
+instance HasFreeVariables (AG.AtomicFormula t)
+    => HasFreeVariables (AG.Subgoal (BOp a) t) where
+  freeVars = cata varAlg
+    where
+    varAlg :: Base (AG.Subgoal (BOp a) t) [ AG.Var ] -> [ AG.Var ]
+    varAlg (SBodyJumpF _ vars _ term)   =
+      case term of { AG.TVar v -> v : vars; _ -> vars }
+    varAlg (SBindF _ _ var vars)        = var : vars
+    varAlg (SAtomF _ atom)              = freeVars atom
+    varAlg (AG.SNullOpF _ _)            = []
+    varAlg (AG.SUnOpF _ _ vars)         = vars
+    varAlg (AG.SBinOpF _ _ vars1 vars2) = vars1 ++ vars2
+
+instance HasFreeVariables (AG.AtomicFormula AG.Term) where
+  freeVars = AG.vars
+
+instance HasFreeVariables (AG.AtomicFormula AG.Var) where
+  freeVars = AG.vars
+
+instance HasFreeVariables (AG.AtomicFormula AG.Sym) where
+  freeVars = AG.vars
 
 -------------------------------------------------------------------------------
 -- Pretty printing related instances
