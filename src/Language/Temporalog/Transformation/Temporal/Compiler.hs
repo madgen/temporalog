@@ -124,7 +124,7 @@ eliminateTemporal metadata program = do
   goBody (SBind span timePredSym var child) = do
     timeTerm <- observeClock timePredSym
     newChild <- subst var timeTerm child
-    goBody child
+    goBody newChild
   -- Temporal operators
   goBody (SEX span timePredSym phi) = do
     -- Get an axuillary predicate and its de facto atom
