@@ -1,0 +1,21 @@
+.decl v(int,int).
+v(1,2).
+v(2,3).
+v(2,4).
+
+.decl v'(int,int).
+v'(T,T') :- v(T,T').
+v'(T',T')  :- v(T,T'), ! v(T',T'').
+
+.decl q() @ v'.
+q() @ v' 1.
+q() @ v' 2.
+q() @ v' 3.
+
+.decl p() @ v'.
+p() @ v' 2.
+p() @ v' 4.
+
+?- EG v' p().         % At 2; 4
+?- EG v' q().         % At 1; 2; 3
+?- EG v' (p() ; q()). % At 1; 2; 3; 4
