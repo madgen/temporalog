@@ -161,36 +161,39 @@ eliminateTemporal metadata program = do
     -- Get an axuillary predicate and its de facto atom
     auxPredSym <- (lift . lift . lift) freshPredSym
 
-    x <- observeClock timePredSym
-    y <- TVar <$> freshTypedTimeVar metadata timePredSym
+    t <- observeClock timePredSym
+    [ x, y ] <- replicateM 2 $ TVar <$> freshTypedTimeVar metadata timePredSym
 
-    phi' <- goBody phi
-    psi' <- goBody psi
+    phi' <- setClock timePredSym x $ goBody phi
+    psi' <- setClock timePredSym x $ goBody psi
 
-    let params = TVar <$> nub (vars phi' <> vars psi')
+    let params = TVar <$> nub (freeVars phi <> freeVars psi)
 
-    let auxAtom = SAtom span
-          AtomicFormula{ _span = span
-                       , _predSym = auxPredSym
-                       , _terms = params
-                       }
-
-    addAtomType (AG._atom auxAtom)
-
-    groundingTimeAtom <- timeAtom metadata timePredSym x
+    let auxAtom =
+         AtomicFormula { _span = span , _predSym = auxPredSym , _terms = [] }
 
     -- Generate auxillary clauses
-    lift $ lift $ lift $ addClause $ AG.Clause span auxAtom
+    let auxHead = SAtom span (auxAtom {_terms = params <> [ x ] })
+
+    addAtomType (AG._atom auxHead)
+
+    -- Base base:
+    groundingTimeAtom <- timeAtom metadata timePredSym x
+
+    lift $ lift $ lift $ addClause $ AG.Clause span auxHead
       (SConj span groundingTimeAtom psi')
 
-    recAuxAtom <- subst' x y auxAtom
+    -- Inductive clause:
+    let recAuxAtom = SAtom span (auxAtom {_terms = params <> [ y ] })
 
-    lift $ lift $ lift $ addClause $ AG.Clause span auxAtom
+    lift $ lift $ lift $ addClause $ AG.Clause span auxHead
       (SConj span (accessibilityAtom timePredSym x y)
                   (SConj span recAuxAtom phi'))
 
     -- Compile by calling the auxillary clause
-    pure auxAtom
+    let auxResult = SAtom span (auxAtom {_terms = params <> [ t ] })
+
+    pure auxResult
   goBody (SAF span timePredSym phi) = do
     [aux1PredSym, aux2PredSym]  <- replicateM 2 $ (lift . lift . lift) freshPredSym
 
