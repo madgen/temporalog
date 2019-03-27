@@ -116,6 +116,7 @@ eliminateTemporal metadata program = do
   -- Logical operators
   goBody (SNeg span c)      = SNeg span  <$> goBody c
   goBody (SConj span c1 c2) = SConj span <$> goBody c1 <*> goBody c2
+  goBody (SDisj span c1 c2) = SDisj span <$> goBody c1 <*> goBody c2
   goBody (SDogru span)      = pure (SDogru span)
   -- Hybrid operators
   goBody (SBodyJump span child timePredSym time) =
