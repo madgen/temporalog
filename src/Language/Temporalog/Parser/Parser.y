@@ -110,11 +110,11 @@ SUBGOAL :: { Subgoal (BOp 'Temporal) Term }
 
 ATOMIC_FORMULA :: { AtomicFormula Term }
 : FX_SYM "(" TERMS ")" { AtomicFormula (transSpan (fst $1) (span $4)) (snd $1) (reverse $3) }
-| FX_SYM               { AtomicFormula (fst $1)                       (snd $1) [] }
+| FX_SYM "("       ")" { AtomicFormula (transSpan (fst $1) (span $3)) (snd $1) [] }
 
 ATOM_TYPE :: { AtomicFormula TermType }
 : FX_SYM "(" TYPES ")" { AtomicFormula (transSpan (fst $1) (span $4)) (snd $1) (reverse $3) }
-| FX_SYM               { AtomicFormula (fst $1)                       (snd $1) [] }
+| FX_SYM "("       ")" { AtomicFormula (transSpan (fst $1) (span $3)) (snd $1) [] }
 
 FX_SYMS :: { [ (SrcSpan, G.PredicateSymbol) ] }
 : FX_SYMS FX_SYM { $2 : $1 }
