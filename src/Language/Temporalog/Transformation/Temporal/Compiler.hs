@@ -359,10 +359,12 @@ freshPredSym :: Monad m => CompilerMT m PredicateSymbol
 freshPredSym = do
   (predSyms, ix) <- fst <$> get
   modify (first (second (+ 1)))
-  pure $ go predSyms ix
-  where
-    go predSyms i | candidate <- PredicateSymbol [ "aux" <> pack (show i) ] =
-      if candidate `elem` predSyms then go predSyms (i + 1) else candidate
+
+  let candidate = PredicateSymbol [ "aux" <> pack (show ix) ]
+
+  if candidate `elem` predSyms
+    then freshPredSym
+    else pure candidate
 
 type TimeEnv = M.Map AG.PredicateSymbol Term
 type TimeEnvMT = ReaderT TimeEnv
