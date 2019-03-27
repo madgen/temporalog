@@ -185,93 +185,86 @@ eliminateTemporal metadata program = do
       (SConj span groundingTimeAtom psi')
 
     -- Inductive clause:
-    let recAuxAtom = SAtom span (auxAtom {_terms = params <> [ y ] })
+    let auxAtomRec = SAtom span (auxAtom {_terms = params <> [ y ] })
 
     lift $ lift $ lift $ addClause $ AG.Clause span auxHead
       (SConj span (accessibilityAtom timePredSym x y)
-                  (SConj span recAuxAtom phi'))
+                  (SConj span auxAtomRec phi'))
 
     -- Compile by calling the auxillary clause
     let auxResult = SAtom span (auxAtom {_terms = params <> [ t ] })
 
     pure auxResult
-  goBody (SAF span timePredSym phi) = do
+  goBody (SEG span timePredSym phi) = do
     [aux1PredSym, aux2PredSym]  <- replicateM 2 $ (lift . lift . lift) freshPredSym
 
     -- x is the time term (maybe not even a variable)
-    x <- observeClock timePredSym
+    t <- observeClock timePredSym
 
     -- auxillary variables used to advance time (among other things)
-    [y, z] <- replicateM 2 $ freshTypedTimeVar metadata timePredSym
+    [x, y, z] <- replicateM 3 $ TVar <$> freshTypedTimeVar metadata timePredSym
 
-    phi' <- goBody phi
+    phi' <- setClock timePredSym y (goBody phi)
 
-    -- A subset of parameters for aux1 and aux2
     let params = TVar <$> vars phi
+
+    let aux2Atom =
+         AtomicFormula { _span = span , _predSym = aux2PredSym , _terms = [] }
 
     -- Generate auxillary clauses
 
-    -- Negative path finding aux2:
-    let aux2Atom = SAtom span
-          AtomicFormula{ _span = span
-                       , _predSym = aux2PredSym
-                       , _terms = params <> [ TVar z ]
-                       }
+    -- AUX2: Negative path finding:
+    let aux2BaseHead = SAtom span $ aux2Atom {_terms = params <> [ x, y ] }
 
-    addAtomType (AG._atom aux2Atom)
+    addAtomType (AG._atom aux2BaseHead)
 
     -- Base case:
     -- Find a point phi doesn't hold
-    lift $ lift $ lift $ addClause $ AG.Clause span aux2Atom
-      (SConj span (accessibilityAtom timePredSym x (TVar z)) (SNeg span phi'))
+    let acc2 = accessibilityAtom timePredSym x y
+
+    lift $ lift $ lift $ addClause $ AG.Clause span aux2BaseHead
+      (SConj span acc2 phi')
 
     -- Inductive case:
     -- Work backwards to find other points it doesn't hold
-    recAux2Atom  <- subst z (TVar y) aux2Atom
-    phi'Advanced <- subst' x (TVar y) phi'
-    let accAtom2 = accessibilityAtom timePredSym (TVar y) (TVar z)
 
-    lift $ lift $ lift $ addClause $ AG.Clause span aux2Atom
-      (SConj span accAtom2
-                  (SConj span recAux2Atom
-                              (SNeg span phi'Advanced)))
+    let aux2InductiveHead = SAtom span $ aux2Atom {_terms = params <> [ x, z ] }
 
-    -- Finding negative paths to the loop
-    let aux1Atom = SAtom span
-          AtomicFormula{ _span = span
-                       , _predSym = aux1PredSym
-                       , _terms = params
-                       }
+    let aux2InductiveRec = SAtom span $ aux2Atom {_terms = params <> [ y, z ] }
 
-    addAtomType (AG._atom aux1Atom)
+    lift $ lift $ lift $ addClause $ AG.Clause span aux2InductiveHead
+      (SConj span acc2 (SConj span aux2InductiveRec phi'))
+
+    -- AUX1: Finding negative paths to the loop
+    let aux1Atom =
+         AtomicFormula { _span = span , _predSym = aux1PredSym , _terms = [] }
+
+    let aux1Head = SAtom span $ aux1Atom {_terms = params <> [ y ]}
+
+    addAtomType (AG._atom aux1Head)
 
     -- Base case:
     -- Find a handle on the loop using aux2
 
-    -- We assume (hope) that params already has the time parameter (x)
-    -- inside so the second x ties the loop.
-    let loopyAux2Atom = SAtom span
-          AtomicFormula{ _span = span
-                       , _predSym = aux2PredSym
-                       , _terms = params <> [ x ]
-                       }
+    let loopyAux2Atom = SAtom span $ aux2Atom {_terms = params <> [ y, y ]}
 
-    lift $ lift $ lift $ addClause $ AG.Clause span aux1Atom loopyAux2Atom
+    lift $ lift $ lift $ addClause $ AG.Clause span aux1Head loopyAux2Atom
 
     -- Inductive case:
     -- Work backwards again but not for loops just for paths that lead to
     -- the loop.
 
-    let accAtom1 = accessibilityAtom timePredSym x (TVar y)
+    let acc1 = accessibilityAtom timePredSym y x
 
-    aux1AtomAdvanced <- subst' x (TVar y) aux1Atom
+    let aux1Rec = SAtom span $ aux1Atom {_terms = params <> [ x ]}
 
-    lift $ lift $ lift $ addClause $ AG.Clause span aux1Atom
-      (SConj span accAtom1
-                  (SConj span aux1AtomAdvanced
-                              (SNeg span phi')))
+    lift $ lift $ lift $ addClause $ AG.Clause span aux1Head
+      (SConj span acc1 (SConj span aux1Rec phi'))
 
-    pure $ SNeg span aux1Atom
+    -- Compile by calling the auxillary clause
+    let auxResult = SAtom span (aux1Atom {_terms = params <> [ t ] })
+
+    pure auxResult
 
 timeAtom :: MD.Metadata
          -> PredicateSymbol
