@@ -18,12 +18,12 @@ import Protolude
 import qualified Data.ByteString.Lazy.Char8 as BS
 
 import qualified Language.Exalog.Core as E
+import qualified Language.Exalog.Logger as Log
 import qualified Language.Exalog.Relation as R
 
 import qualified Language.Vanillalog.AST as VA
 import qualified Language.Vanillalog.Generic.AST as AG
 import           Language.Vanillalog.Generic.Compiler (compile)
-import qualified Language.Vanillalog.Generic.Logger as Log
 import qualified Language.Vanillalog.Generic.Parser.Lexeme as L
 import           Language.Vanillalog.Generic.RangeRestriction (checkRangeRestriction)
 import           Language.Vanillalog.Generic.Transformation.Query (nameQueries)
@@ -39,7 +39,7 @@ import           Language.Temporalog.Transformation.Temporal.Compiler (eliminate
 import           Language.Temporalog.Transformation.Temporal.Vanilla (toVanilla)
 import           Language.Temporalog.TypeChecker (typeCheck)
 
-type Stage a = FilePath -> BS.ByteString -> Log.LoggerM a
+type Stage a = FilePath -> BS.ByteString -> Log.Logger a
 
 lex :: Stage [ L.Lexeme (Lexer.Token Text) ]
 lex = Lexer.lex

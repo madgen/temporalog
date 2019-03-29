@@ -47,10 +47,8 @@ stageParser =
 run :: RunOptions -> IO ()
 run RunOptions{..} = do
   bs <- BS.fromStrict . encodeUtf8 <$> readFile file
-  succeedOrDie (Stage.compiled file) bs $
-    \(exalogProgram, initEDB) -> do
-      finalEDB <- S.solve exalogProgram initEDB
-      putStrLn $ pp finalEDB
+  succeedOrDie (Stage.compiled file >=> uncurry S.solve) bs $
+      putStrLn . pp
 
 repl :: ReplOptions -> IO ()
 repl opts = panic "REPL is not yet supported."

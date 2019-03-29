@@ -15,9 +15,10 @@ import           Data.List (nub)
 import           Data.Text (pack)
 import qualified Data.Map.Strict as M
 
+import qualified Language.Exalog.Logger as Log
+import           Language.Exalog.SrcLoc (span, dummySpan)
+
 import qualified Language.Vanillalog.Generic.AST as AG
-import qualified Language.Vanillalog.Generic.Logger as Log
-import           Language.Vanillalog.Generic.Parser.SrcLoc (span, dummySpan)
 import           Language.Vanillalog.Generic.Pretty (pp)
 import           Language.Vanillalog.Generic.Transformation.Util (Algebra, Coalgebra)
 
@@ -26,7 +27,7 @@ import qualified Language.Temporalog.Metadata as MD
 
 eliminateTemporal :: MD.Metadata
                   -> AG.Program Void HOp (BOp 'Temporal)
-                  -> Log.LoggerM ( MD.Metadata
+                  -> Log.Logger ( MD.Metadata
                                  , AG.Program Void (Const Void) (BOp 'ATemporal)
                                  )
 eliminateTemporal metadata program = do
@@ -44,7 +45,7 @@ eliminateTemporal metadata program = do
     )
   where
   goPr :: AG.Program Void HOp (BOp 'Temporal)
-       -> CompilerMT Log.LoggerM
+       -> CompilerMT Log.Logger
                      ( AG.Program Void (Const Void) (BOp 'ATemporal)
                      , PredTypeEnv
                      )
@@ -55,7 +56,7 @@ eliminateTemporal metadata program = do
          )
 
   goSt :: AG.Statement Void HOp (BOp 'Temporal)
-       -> CompilerMT Log.LoggerM
+       -> CompilerMT Log.Logger
                      ( AG.Statement Void (Const Void) (BOp 'ATemporal)
                      , PredTypeEnv
                      )
@@ -64,7 +65,7 @@ eliminateTemporal metadata program = do
   goSt AG.StDeclaration{..} = absurd _declaration
 
   goSent :: AG.Sentence HOp (BOp 'Temporal)
-         -> CompilerMT Log.LoggerM
+         -> CompilerMT Log.Logger
                        ( AG.Sentence (Const Void) (BOp 'ATemporal)
                        , PredTypeEnv
                        )
@@ -400,7 +401,7 @@ freshVar = do
 freshTimeEnv :: [ AG.PredicateSymbol ]
              -- The following is super ugly. It's time I switch to
              -- algebraic effects.
-             -> FreshVarMT (CompilerMT Log.LoggerM)
+             -> FreshVarMT (CompilerMT Log.Logger)
                   ( TimeEnv
                   , [ Var ] -- Newly generated vars
                   )
@@ -408,7 +409,7 @@ freshTimeEnv timePreds = do
   freshVars <- replicateM (length timePreds) freshVar
   pure (M.fromList $ zip timePreds (TVar <$> freshVars), freshVars)
 
-timePreds :: MD.Metadata -> Sentence -> Log.LoggerM [ AG.PredicateSymbol ]
+timePreds :: MD.Metadata -> Sentence -> Log.Logger [ AG.PredicateSymbol ]
 timePreds metadata sent =
   case sent of
     AG.SClause AG.Clause{..} ->
@@ -417,12 +418,12 @@ timePreds metadata sent =
     AG.SFact   AG.Fact{..}   -> headTimePreds _head
 
   where
-  headTimePreds :: Subgoal HOp Term -> Log.LoggerM [ AG.PredicateSymbol ]
+  headTimePreds :: Subgoal HOp Term -> Log.Logger [ AG.PredicateSymbol ]
   headTimePreds AG.SAtom{..} = atomTimePreds _atom
   headTimePreds (SHeadJump _ phi predSym _) = (predSym :) <$> headTimePreds phi
 
   bodyTimePreds :: Subgoal (BOp 'Temporal) Term
-                -> Log.LoggerM [ AG.PredicateSymbol ]
+                -> Log.Logger [ AG.PredicateSymbol ]
   bodyTimePreds AG.SAtom{..} = atomTimePreds _atom
   bodyTimePreds (SBodyJump _ phi timePred _) =
     (timePred :) <$> bodyTimePreds phi
@@ -442,7 +443,7 @@ timePreds metadata sent =
   bodyTimePreds AG.SBinOp{..} = (<>) <$> bodyTimePreds _child1
                                      <*> bodyTimePreds _child2
 
-  atomTimePreds :: AtomicFormula Term -> Log.LoggerM [ AG.PredicateSymbol ]
+  atomTimePreds :: AtomicFormula Term -> Log.Logger [ AG.PredicateSymbol ]
   atomTimePreds AtomicFormula{..} =
     MD.timingPreds <$> _predSym `MD.lookupM` metadata
 
@@ -514,11 +515,11 @@ initTypeEnv metadata sentence = do
         Log.scream (Just $ span sentence)
           "Initial time environment contains a non-var."
 
-type ClauseM = TimeEnvMT (TypeEnvMT (FreshVarMT (CompilerMT Log.LoggerM)))
+type ClauseM = TimeEnvMT (TypeEnvMT (FreshVarMT (CompilerMT Log.Logger)))
 
 runClauseM :: [ Var ]
            -> TimeEnv
            -> ClauseM a
-           -> CompilerMT Log.LoggerM (a, PredTypeEnv)
+           -> CompilerMT Log.Logger (a, PredTypeEnv)
 runClauseM vars timeEnv action =
   runFreshVarMT vars (runTypeEnvMT (runTimeEnvMT action timeEnv))

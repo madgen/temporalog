@@ -9,10 +9,11 @@ import           Data.Text.Lazy.Encoding (decodeUtf8)
 import           Data.Text.Lazy (toStrict)
 import qualified Data.ByteString.Lazy.Char8 as BS
 
-import           Language.Vanillalog.Generic.Error (Error(..), Severity(..))
-import           Language.Vanillalog.Generic.Parser.SrcLoc hiding (file)
+import           Language.Exalog.Error (Error(..), Severity(..))
+import           Language.Exalog.SrcLoc hiding (file)
+import qualified Language.Exalog.Logger as Log
+
 import qualified Language.Vanillalog.Generic.Parser.Lexeme as L
-import qualified Language.Vanillalog.Generic.Logger as Log
 
 #ifdef DEBUG
 import Debug.Trace
@@ -220,7 +221,7 @@ enterStartCodeAnd startCode action inp len =
 exitStartCodeAnd :: AlexAction a -> AlexAction a
 exitStartCodeAnd action inp len = exitStartCode' *> action inp len
 
-lex :: FilePath -> BS.ByteString -> Log.LoggerM [ L.Lexeme (Token Text) ]
+lex :: FilePath -> BS.ByteString -> Log.Logger [ L.Lexeme (Token Text) ]
 lex file source =
   case result of
     Right lexemes -> pure $ fmap (fmap (toStrict . decodeUtf8)) <$> lexemes

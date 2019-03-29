@@ -52,10 +52,11 @@ import Text.PrettyPrint ((<+>), (<>), int, empty, punctuate, hcat)
 
 import           Language.Exalog.Pretty.Helper ((<+?>), prettyC)
 
+import           Language.Exalog.SrcLoc
+import qualified Language.Exalog.Logger as L
+
 import qualified Language.Vanillalog.Generic.AST as AG
 import           Language.Vanillalog.Generic.Compiler (ClosureCompilable(..), Closure(..))
-import qualified Language.Vanillalog.Generic.Logger as L
-import           Language.Vanillalog.Generic.Parser.SrcLoc
 import           Language.Vanillalog.Generic.Pretty ( Pretty(..)
                                                     , HasPrecedence(..)
                                                     )

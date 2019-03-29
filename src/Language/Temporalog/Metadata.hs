@@ -24,11 +24,11 @@ import qualified Data.Map.Strict as M
 import qualified Text.PrettyPrint as PP
 
 import           Language.Exalog.Pretty.Helper
+import qualified Language.Exalog.Logger as Log
+import           Language.Exalog.SrcLoc (span, dummySpan)
 
 import           Language.Vanillalog.Generic.Pretty
 import qualified Language.Vanillalog.Generic.AST as AG
-import qualified Language.Vanillalog.Generic.Logger as Log
-import           Language.Vanillalog.Generic.Parser.SrcLoc (span, dummySpan)
 
 import Language.Temporalog.AST
 
@@ -59,7 +59,7 @@ type Metadata = M.Map AG.PredicateSymbol PredicateInfo
 lookup :: AG.PredicateSymbol -> Metadata -> Maybe PredicateInfo
 lookup = M.lookup
 
-lookupM :: AG.PredicateSymbol -> Metadata -> Log.LoggerM PredicateInfo
+lookupM :: AG.PredicateSymbol -> Metadata -> Log.Logger PredicateInfo
 lookupM predSym metadata =
   case predSym `lookup` metadata of
     Just predInfo -> pure predInfo
@@ -71,7 +71,7 @@ addAtemporal predSym predType =
   M.insert predSym (PredicateInfo { _originalType = predType, _timings = [] })
 
 -- |Extract metadata from declarations
-processMetadata :: Program -> Log.LoggerM Metadata
+processMetadata :: Program -> Log.Logger Metadata
 processMetadata program = do
   let (decls, sentences) =
           bimap (AG._declaration <$>) (AG._sentence <$>)
@@ -113,7 +113,7 @@ processMetadata program = do
 
   processTemporal :: Metadata
                   -> Declaration
-                  -> Log.LoggerM (AG.PredicateSymbol, PredicateInfo)
+                  -> Log.Logger (AG.PredicateSymbol, PredicateInfo)
   processTemporal metadata Declaration{..} = do
     tSyms <- maybe (Log.scream Nothing "Processing an atemporal predicate.") pure
       _timePredSyms
@@ -138,7 +138,7 @@ processMetadata program = do
          )
 
 -- |Make sure there no repeated declarations for the same predicate.
-uniquenessCheck :: [ Declaration ] -> Log.LoggerM ()
+uniquenessCheck :: [ Declaration ] -> Log.Logger ()
 uniquenessCheck decls = do
   let predSyms = map (#_predSym . _atomType) decls
   let diff = predSyms \\ nub predSyms :: [ PredicateSymbol ]
@@ -155,7 +155,7 @@ uniquenessCheck decls = do
 
 -- |Check all predicates appearing in declarations have corresponding clauses
 -- defining them.
-sentenceExistenceCheck :: [ Sentence ] -> [ Declaration ] -> Log.LoggerM ()
+sentenceExistenceCheck :: [ Sentence ] -> [ Declaration ] -> Log.Logger ()
 sentenceExistenceCheck sentences decls = forM_ decls $ \Declaration{..} -> do
   let declaredPredSym = #_predSym _atomType
   checkExistence _span declaredPredSym
@@ -176,7 +176,7 @@ name AG.SAtom{..}        = #_predSym _atom
 name (SHeadJump _ sub _ _) = name sub
 
 -- |Check all predicates defined have corresponding declarations.
-declarationExistenceCheck :: [ Sentence ] -> [ Declaration ] -> Log.LoggerM ()
+declarationExistenceCheck :: [ Sentence ] -> [ Declaration ] -> Log.Logger ()
 declarationExistenceCheck sentences decls = forM_ sentences $ \case
   AG.SQuery{} -> pure ()
   AG.SFact{AG._fact     = AG.Fact{_head   = sub,..}} ->
