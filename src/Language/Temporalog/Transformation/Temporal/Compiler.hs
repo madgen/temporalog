@@ -1,6 +1,8 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedLabels #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 
 module Language.Temporalog.Transformation.Temporal.Compiler
   ( eliminateTemporal
@@ -409,42 +411,51 @@ freshTimeEnv timePreds = do
   freshVars <- replicateM (length timePreds) freshVar
   pure (M.fromList $ zip timePreds (TVar <$> freshVars), freshVars)
 
-timePreds :: MD.Metadata -> Sentence -> Log.Logger [ AG.PredicateSymbol ]
-timePreds metadata sent =
-  case sent of
-    AG.SClause AG.Clause{..} ->
-      (<>) <$> headTimePreds _head <*> bodyTimePreds _body
-    AG.SQuery  AG.Query{..}  -> bodyTimePreds _body
-    AG.SFact   AG.Fact{..}   -> headTimePreds _head
+class HasTimePredicates a where
+  timePreds :: MD.Metadata -> a -> Log.Logger [ AG.PredicateSymbol ]
 
-  where
-  headTimePreds :: Subgoal HOp Term -> Log.Logger [ AG.PredicateSymbol ]
-  headTimePreds AG.SAtom{..} = atomTimePreds _atom
-  headTimePreds (SHeadJump _ phi predSym _) = (predSym :) <$> headTimePreds phi
+instance HasTimePredicates Sentence where
+  timePreds metadata sent =
+    case sent of
+      AG.SClause AG.Clause{..} -> (<>)
+                              <$> timePreds metadata _head
+                              <*> timePreds metadata _body
+      AG.SQuery  AG.Query{..}  -> timePreds metadata _body
+      AG.SFact   AG.Fact{..}   -> timePreds metadata _head
 
-  bodyTimePreds :: Subgoal (BOp 'Temporal) Term
-                -> Log.Logger [ AG.PredicateSymbol ]
-  bodyTimePreds AG.SAtom{..} = atomTimePreds _atom
-  bodyTimePreds (SBodyJump _ phi timePred _) =
-    (timePred :) <$> bodyTimePreds phi
-  bodyTimePreds (SBind _ timePred _ phi) = (timePred :) <$> bodyTimePreds phi
-  bodyTimePreds (SEX _ timePred phi)     = (timePred :) <$> bodyTimePreds phi
-  bodyTimePreds (SAX _ timePred phi)     = (timePred :) <$> bodyTimePreds phi
-  bodyTimePreds (SEF _ timePred phi)     = (timePred :) <$> bodyTimePreds phi
-  bodyTimePreds (SAF _ timePred phi)     = (timePred :) <$> bodyTimePreds phi
-  bodyTimePreds (SEG _ timePred phi)     = (timePred :) <$> bodyTimePreds phi
-  bodyTimePreds (SAG _ timePred phi)     = (timePred :) <$> bodyTimePreds phi
-  bodyTimePreds (SEU _ timePred phi psi) =
-    (\xs ys -> timePred : xs <> ys) <$> bodyTimePreds phi <*> bodyTimePreds psi
-  bodyTimePreds (SAU _ timePred phi psi) =
-    (\xs ys -> timePred : xs <> ys) <$> bodyTimePreds phi <*> bodyTimePreds psi
-  bodyTimePreds AG.SNullOp{}  = pure []
-  bodyTimePreds AG.SUnOp{..}  = bodyTimePreds _child
-  bodyTimePreds AG.SBinOp{..} = (<>) <$> bodyTimePreds _child1
-                                     <*> bodyTimePreds _child2
+instance HasTimePredicates (Subgoal HOp Term) where
+  timePreds metadata rho =
+    case rho of
+      AG.SAtom{..}              -> timePreds metadata _atom
+      SHeadJump _ phi predSym _ -> (predSym :)
+                               <$> timePreds metadata phi
 
-  atomTimePreds :: AtomicFormula Term -> Log.Logger [ AG.PredicateSymbol ]
-  atomTimePreds AtomicFormula{..} =
+instance HasTimePredicates (Subgoal (BOp 'Temporal) Term) where
+  timePreds metadata rho =
+    case rho of
+      AG.SAtom{..}               -> timePreds metadata _atom
+      SBodyJump _ phi timePred _ -> (timePred :) <$> timePreds metadata phi
+      SBind _ timePred _ phi     -> (timePred :) <$> timePreds metadata phi
+      SEX _ timePred phi         -> (timePred :) <$> timePreds metadata phi
+      SAX _ timePred phi         -> (timePred :) <$> timePreds metadata phi
+      SEF _ timePred phi         -> (timePred :) <$> timePreds metadata phi
+      SAF _ timePred phi         -> (timePred :) <$> timePreds metadata phi
+      SEG _ timePred phi         -> (timePred :) <$> timePreds metadata phi
+      SAG _ timePred phi         -> (timePred :) <$> timePreds metadata phi
+      SEU _ timePred phi psi     -> (\xs ys -> timePred : xs <> ys)
+                                <$> timePreds metadata phi
+                                <*> timePreds metadata psi
+      SAU _ timePred phi psi     -> (\xs ys -> timePred : xs <> ys)
+                                <$> timePreds metadata phi
+                                <*> timePreds metadata psi
+      AG.SNullOp{}               -> pure []
+      AG.SUnOp{..}               -> timePreds metadata _child
+      AG.SBinOp{..}              -> (<>)
+                                <$> timePreds metadata _child1
+                                <*> timePreds metadata _child2
+
+instance HasTimePredicates (AtomicFormula Term) where
+  timePreds metadata AtomicFormula{..} =
     MD.timingPreds <$> _predSym `MD.lookupM` metadata
 
 type VarTypeEnv  = M.Map Var                TermType
