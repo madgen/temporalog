@@ -134,15 +134,18 @@ eliminateTemporal metadata program = do
     auxPredSym <- (lift . lift . lift) freshPredSym
 
     t <- observeClock timePredSym
-    [ x, y ] <- replicateM 2 $ TVar <$> freshTypedTimeVar metadata timePredSym
+    uniqTimePreds <- lift $ lift $ lift $ lift
+                   $ nub . sort . (timePredSym :) <$> timePreds metadata phi
+    delta1 <- traverse observeClock uniqTimePreds
+    x <- TVar <$> freshTypedTimeVar metadata timePredSym
 
-    let params = TVar <$> nub (freeVars phi)
+    let delta0 = TVar <$> nub (freeVars phi)
 
     -- Transition atom
-    let transitionAtom = accessibilityAtom timePredSym x y
+    let transitionAtom = accessibilityAtom timePredSym t x
 
     -- Evaluate the child with advanced time
-    phi' <- setClock timePredSym y (goBody phi)
+    phi' <- setClock timePredSym x (goBody phi)
 
     -- Auxillary clause:
 
@@ -150,17 +153,14 @@ eliminateTemporal metadata program = do
     let auxAtom =
          AtomicFormula { _span = span , _predSym = auxPredSym , _terms = [] }
 
-    let auxHead = SAtom span (auxAtom {_terms = params <> [ x ] })
+    let auxHead = SAtom span (auxAtom {_terms = delta0 <> delta1 })
 
     addAtomType (AG._atom auxHead)
 
     lift $ lift $ lift $ addClause $ AG.Clause span auxHead
       (SConj span transitionAtom phi')
 
-    -- Compile to a call to the auxillary clause
-    let auxResult = SAtom span (auxAtom {_terms = params <> [ t ] })
-
-    pure auxResult
+    pure auxHead
   goBody (SEU span timePredSym phi psi) = do
     -- Get an axuillary predicate and its de facto atom
     auxPredSym <- (lift . lift . lift) freshPredSym
