@@ -163,41 +163,47 @@ eliminateTemporal metadata program = do
       (SConj span transitionAtom phi')
 
     pure auxHead
-  goBody (SEU span timePredSym phi psi) = do
+  goBody rho@(SEU span timePredSym phi psi) = do
     -- Get an axuillary predicate and its de facto atom
     auxPredSym <- (lift . lift . lift) freshPredSym
 
-    t <- observeClock timePredSym
     [ x, y ] <- replicateM 2 $ TVar <$> freshTypedTimeVar metadata timePredSym
 
+    let delta0 = TVar <$> nub (freeVars rho)
+
+    uniqTimePreds <- lift $ lift $ lift $ lift
+                   $ nub . sort <$> timePreds metadata rho
+
+    let timeTermsM = traverse observeClock uniqTimePreds
+
+    delta1 <- timeTermsM
+    delta2 <- setClock timePredSym x timeTermsM
+    delta3 <- setClock timePredSym y timeTermsM
+
+    -- Compile subformulae
     phi' <- setClock timePredSym x $ goBody phi
     psi' <- setClock timePredSym x $ goBody psi
-
-    let params = TVar <$> nub (freeVars phi <> freeVars psi)
 
     let auxAtom =
          AtomicFormula { _span = span , _predSym = auxPredSym , _terms = [] }
 
     -- Generate auxillary clauses
-    let auxHead = SAtom span (auxAtom {_terms = params <> [ x ] })
+    let auxHead = SAtom span (auxAtom {_terms = delta0 <> delta2 })
 
     addAtomType (AG._atom auxHead)
 
     -- Base base:
-    groundingTimeAtom <- timeAtom metadata timePredSym x
-
-    lift $ lift $ lift $ addClause $ AG.Clause span auxHead
-      (SConj span groundingTimeAtom psi')
+    lift $ lift $ lift $ addClause $ AG.Clause span auxHead psi'
 
     -- Inductive clause:
-    let auxAtomRec = SAtom span (auxAtom {_terms = params <> [ y ] })
+    let auxAtomRec = SAtom span (auxAtom {_terms = delta0 <> delta3 })
 
     lift $ lift $ lift $ addClause $ AG.Clause span auxHead
       (SConj span (accessibilityAtom timePredSym x y)
                   (SConj span auxAtomRec phi'))
 
     -- Compile by calling the auxillary clause
-    let auxResult = SAtom span (auxAtom {_terms = params <> [ t ] })
+    let auxResult = SAtom span (auxAtom {_terms = delta0 <> delta1 })
 
     pure auxResult
   goBody (SEG span timePredSym phi) = do
