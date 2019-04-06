@@ -135,11 +135,11 @@ eliminateTemporal metadata program = do
 
     x <- TVar <$> freshTypedTimeVar metadata timePredSym
 
-    let delta0 = TVar <$> nub (freeVars phi)
+    let deltaFV = TVar <$> nub (freeVars phi)
 
     uniqTimePreds <- lift $ lift $ lift $ lift
                    $ nub . sort <$> timePreds metadata rho
-    delta1 <- traverse observeClock uniqTimePreds
+    delta <- traverse observeClock uniqTimePreds
 
     t <- observeClock timePredSym
 
@@ -155,7 +155,7 @@ eliminateTemporal metadata program = do
     let auxAtom =
          AtomicFormula { _span = span , _predSym = auxPredSym , _terms = [] }
 
-    let auxHead = SAtom span (auxAtom {_terms = delta0 <> delta1 })
+    let auxHead = SAtom span (auxAtom {_terms = deltaFV <> delta })
 
     addAtomType (AG._atom auxHead)
 
@@ -169,16 +169,16 @@ eliminateTemporal metadata program = do
 
     [ x, y ] <- replicateM 2 $ TVar <$> freshTypedTimeVar metadata timePredSym
 
-    let delta0 = TVar <$> nub (freeVars rho)
+    let deltaFV = TVar <$> nub (freeVars rho)
 
     uniqTimePreds <- lift $ lift $ lift $ lift
                    $ nub . sort <$> timePreds metadata rho
 
     let timeTermsM = traverse observeClock uniqTimePreds
 
-    delta1 <- timeTermsM
-    delta2 <- setClock timePredSym x timeTermsM
-    delta3 <- setClock timePredSym y timeTermsM
+    delta <- timeTermsM
+    deltaX <- setClock timePredSym x timeTermsM
+    deltaY <- setClock timePredSym y timeTermsM
 
     -- Compile subformulae
     phi' <- setClock timePredSym x $ goBody phi
@@ -188,7 +188,7 @@ eliminateTemporal metadata program = do
          AtomicFormula { _span = span , _predSym = auxPredSym , _terms = [] }
 
     -- Generate auxillary clauses
-    let auxHead = SAtom span (auxAtom {_terms = delta0 <> delta2 })
+    let auxHead = SAtom span (auxAtom {_terms = deltaFV <> deltaX })
 
     addAtomType (AG._atom auxHead)
 
@@ -196,14 +196,14 @@ eliminateTemporal metadata program = do
     lift $ lift $ lift $ addClause $ AG.Clause span auxHead psi'
 
     -- Inductive clause:
-    let auxAtomRec = SAtom span (auxAtom {_terms = delta0 <> delta3 })
+    let auxAtomRec = SAtom span (auxAtom {_terms = deltaFV <> deltaY })
 
     lift $ lift $ lift $ addClause $ AG.Clause span auxHead
       (SConj span (accessibilityAtom timePredSym x y)
                   (SConj span auxAtomRec phi'))
 
     -- Compile by calling the auxillary clause
-    let auxResult = SAtom span (auxAtom {_terms = delta0 <> delta1 })
+    let auxResult = SAtom span (auxAtom {_terms = deltaFV <> delta })
 
     pure auxResult
   goBody (SEG span timePredSym phi) = do
