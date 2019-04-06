@@ -206,26 +206,38 @@ eliminateTemporal metadata program = do
     let auxResult = SAtom span (auxAtom {_terms = deltaFV <> delta })
 
     pure auxResult
-  goBody (SEG span timePredSym phi) = do
-    [aux1PredSym, aux2PredSym]  <- replicateM 2 $ (lift . lift . lift) freshPredSym
-
-    -- x is the time term (maybe not even a variable)
-    t <- observeClock timePredSym
+  goBody rho@(SEG span timePredSym phi) = do
+    [ aux1PredSym, aux2PredSym ]  <-
+      replicateM 2 $ (lift . lift . lift) freshPredSym
 
     -- auxillary variables used to advance time (among other things)
     [x, y, z] <- replicateM 3 $ TVar <$> freshTypedTimeVar metadata timePredSym
 
+    -- Time parameters
+    let deltaFV = TVar <$> nub (freeVars rho)
+
+    let delta   = TVar <$> nub (freeVars rho)
+
+    uniqTimePreds <- lift $ lift $ lift $ lift
+                   $ nub . sort <$> timePreds metadata rho
+
+    let timeTermsM = traverse observeClock uniqTimePreds
+
+    delta <- timeTermsM
+    deltaX <- setClock timePredSym x timeTermsM
+    deltaY <- setClock timePredSym y timeTermsM
+
+    -- Compile the child
     phi' <- setClock timePredSym y (goBody phi)
 
-    let params = TVar <$> vars phi
-
     let aux2Atom =
-         AtomicFormula { _span = span , _predSym = aux2PredSym , _terms = [] }
+         AtomicFormula {_span = span , _predSym = aux2PredSym , _terms = []}
 
     -- Generate auxillary clauses
 
     -- AUX2: Negative path finding:
-    let aux2BaseHead = SAtom span $ aux2Atom {_terms = params <> [ x, y ] }
+    let aux2BaseHead = SAtom span $
+          aux2Atom {_terms = deltaFV <> deltaX <> [ y ] }
 
     addAtomType (AG._atom aux2BaseHead)
 
@@ -239,9 +251,8 @@ eliminateTemporal metadata program = do
     -- Inductive case:
     -- Work backwards to find other points it doesn't hold
 
-    let aux2InductiveHead = SAtom span $ aux2Atom {_terms = params <> [ x, z ] }
-
-    let aux2InductiveRec = SAtom span $ aux2Atom {_terms = params <> [ y, z ] }
+    let aux2InductiveHead = SAtom span $ aux2Atom {_terms = deltaFV <> deltaX <> [ z ]}
+    let aux2InductiveRec  = SAtom span $ aux2Atom {_terms = deltaFV <> deltaY <> [ z ]}
 
     lift $ lift $ lift $ addClause $ AG.Clause span aux2InductiveHead
       (SConj span acc2 (SConj span aux2InductiveRec phi'))
@@ -250,14 +261,14 @@ eliminateTemporal metadata program = do
     let aux1Atom =
          AtomicFormula { _span = span , _predSym = aux1PredSym , _terms = [] }
 
-    let aux1Head = SAtom span $ aux1Atom {_terms = params <> [ y ]}
+    let aux1Head = SAtom span $ aux1Atom {_terms = deltaFV <> deltaY}
 
     addAtomType (AG._atom aux1Head)
 
     -- Base case:
     -- Find a handle on the loop using aux2
 
-    let loopyAux2Atom = SAtom span $ aux2Atom {_terms = params <> [ y, y ]}
+    let loopyAux2Atom = SAtom span $ aux2Atom {_terms = deltaFV <> deltaY <> [ y ]}
 
     lift $ lift $ lift $ addClause $ AG.Clause span aux1Head loopyAux2Atom
 
@@ -267,13 +278,13 @@ eliminateTemporal metadata program = do
 
     let acc1 = accessibilityAtom timePredSym y x
 
-    let aux1Rec = SAtom span $ aux1Atom {_terms = params <> [ x ]}
+    let aux1Rec = SAtom span $ aux1Atom {_terms = deltaFV <> deltaX}
 
     lift $ lift $ lift $ addClause $ AG.Clause span aux1Head
       (SConj span acc1 (SConj span aux1Rec phi'))
 
     -- Compile by calling the auxillary clause
-    let auxResult = SAtom span (aux1Atom {_terms = params <> [ t ] })
+    let auxResult = SAtom span (aux1Atom {_terms = deltaFV <> delta})
 
     pure auxResult
 
