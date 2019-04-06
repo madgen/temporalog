@@ -129,17 +129,19 @@ eliminateTemporal metadata program = do
     newChild <- subst var timeTerm child
     goBody newChild
   -- Temporal operators
-  goBody (SEX span timePredSym phi) = do
+  goBody rho@(SEX span timePredSym phi) = do
     -- Get an axuillary predicate and its de facto atom
     auxPredSym <- (lift . lift . lift) freshPredSym
 
-    t <- observeClock timePredSym
-    uniqTimePreds <- lift $ lift $ lift $ lift
-                   $ nub . sort . (timePredSym :) <$> timePreds metadata phi
-    delta1 <- traverse observeClock uniqTimePreds
     x <- TVar <$> freshTypedTimeVar metadata timePredSym
 
     let delta0 = TVar <$> nub (freeVars phi)
+
+    uniqTimePreds <- lift $ lift $ lift $ lift
+                   $ nub . sort <$> timePreds metadata rho
+    delta1 <- traverse observeClock uniqTimePreds
+
+    t <- observeClock timePredSym
 
     -- Transition atom
     let transitionAtom = accessibilityAtom timePredSym t x
