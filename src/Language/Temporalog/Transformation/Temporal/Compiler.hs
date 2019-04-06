@@ -137,8 +137,8 @@ eliminateTemporal metadata program = do
 
     let deltaFV = TVar <$> nub (freeVars phi)
 
-    uniqTimePreds <- lift $ lift $ lift $ lift
-                   $ nub . sort <$> timePreds metadata rho
+    uniqTimePreds <- lift $ lift $ lift $ lift $ uniqTimePredsM metadata rho
+
     delta <- traverse observeClock uniqTimePreds
 
     t <- observeClock timePredSym
@@ -171,8 +171,7 @@ eliminateTemporal metadata program = do
 
     let deltaFV = TVar <$> nub (freeVars rho)
 
-    uniqTimePreds <- lift $ lift $ lift $ lift
-                   $ nub . sort <$> timePreds metadata rho
+    uniqTimePreds <- lift $ lift $ lift $ lift $ uniqTimePredsM metadata rho
 
     let timeTermsM = traverse observeClock uniqTimePreds
 
@@ -218,8 +217,7 @@ eliminateTemporal metadata program = do
 
     let delta   = TVar <$> nub (freeVars rho)
 
-    uniqTimePreds <- lift $ lift $ lift $ lift
-                   $ nub . sort <$> timePreds metadata rho
+    uniqTimePreds <- lift $ lift $ lift $ lift $ uniqTimePredsM metadata rho
 
     let timeTermsM = traverse observeClock uniqTimePreds
 
@@ -429,6 +427,11 @@ freshTimeEnv :: [ AG.PredicateSymbol ]
 freshTimeEnv timePreds = do
   freshVars <- replicateM (length timePreds) freshVar
   pure (M.fromList $ zip timePreds (TVar <$> freshVars), freshVars)
+
+
+uniqTimePredsM :: HasTimePredicates a
+               => MD.Metadata -> a -> Log.Logger [ AG.PredicateSymbol ]
+uniqTimePredsM metadata phi = nub . sort <$> timePreds metadata phi
 
 class HasTimePredicates a where
   timePreds :: MD.Metadata -> a -> Log.Logger [ AG.PredicateSymbol ]
