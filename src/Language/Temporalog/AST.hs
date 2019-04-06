@@ -190,7 +190,7 @@ instance HasFreeVariables (AG.AtomicFormula t)
     varAlg :: Base (AG.Subgoal (BOp a) t) [ AG.Var ] -> [ AG.Var ]
     varAlg (SBodyJumpF _ vars _ term)   =
       case term of { AG.TVar v -> v : vars; _ -> vars }
-    varAlg (SBindF _ _ var vars)        = var : vars
+    varAlg (SBindF _ _ var vars)        = filter (var /=) vars
     varAlg (SAtomF _ atom)              = freeVars atom
     varAlg (AG.SNullOpF _ _)            = []
     varAlg (AG.SUnOpF _ _ vars)         = vars
