@@ -20,12 +20,12 @@ import qualified Data.ByteString.Lazy.Char8 as BS
 import qualified Language.Exalog.Core as E
 import qualified Language.Exalog.Logger as Log
 import qualified Language.Exalog.Relation as R
+import           Language.Exalog.RangeRestriction (checkRangeRestriction)
 
 import qualified Language.Vanillalog.AST as VA
 import qualified Language.Vanillalog.Generic.AST as AG
 import           Language.Vanillalog.Generic.Compiler (compile)
 import qualified Language.Vanillalog.Generic.Parser.Lexeme as L
-import           Language.Vanillalog.Generic.RangeRestriction (checkRangeRestriction)
 import           Language.Vanillalog.Generic.Transformation.Query (nameQueries)
 import           Language.Vanillalog.Transformation.Normaliser (normalise)
 
@@ -67,15 +67,9 @@ vanilla file bs = do
   ast' <- toVanilla ast
   pure (meta, ast')
 
-rangeRestricted :: Stage (MD.Metadata, VA.Program)
-rangeRestricted file bs = do
-  res@(meta, ast) <- vanilla file bs
-  checkRangeRestriction ast
-  pure res
-
 typeChecked :: Stage VA.Program
 typeChecked file bs = do
-  res@(meta, ast) <- rangeRestricted file bs
+  res@(meta, ast) <- vanilla file bs
   uncurry typeCheck res
   pure ast
 
@@ -86,4 +80,7 @@ normalised :: Stage VA.Program
 normalised file = namedQueries file >=> normalise
 
 compiled :: Stage (E.Program 'E.ABase, R.Solution 'E.ABase)
-compiled file = normalised file >=> compile
+compiled file bs = do
+  res@(pr, _) <- (normalised file >=> compile) bs
+  checkRangeRestriction pr
+  pure res
