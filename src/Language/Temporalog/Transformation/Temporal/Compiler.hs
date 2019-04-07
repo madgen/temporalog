@@ -494,7 +494,8 @@ addAtomType :: AG.AtomicFormula Term -> ClauseM ()
 addAtomType AG.AtomicFormula{..} = do
   types <- (`traverse` _terms) $ \case
     TVar v -> do
-      mType <- lift $ getType v
+      mType <- lift $ getVarType v
+
       maybe
         (lift . lift . lift . lift $ Log.scream (Just _span) $
           "Type of " <> pp v <> " is unknown.") pure mType
@@ -502,12 +503,15 @@ addAtomType AG.AtomicFormula{..} = do
 
   lift $ modify (second (M.insert _predSym types))
 
-getType :: Monad m => Var -> TypeEnvMT m (Maybe TermType)
-getType var = M.lookup var . fst <$> get
+getVarTypeEnv :: Monad m => TypeEnvMT m VarTypeEnv
+getVarTypeEnv = fst <$> get
+
+getVarType :: Monad m => Var -> TypeEnvMT m (Maybe TermType)
+getVarType var = M.lookup var <$> getVarTypeEnv
 
 addVarType :: Var -> TermType -> ClauseM ()
 addVarType var termType = do
-  mType <- lift $ getType var
+  mType <- lift $ getVarType var
   case mType of
     Just termType'
       | termType == termType -> pure ()
