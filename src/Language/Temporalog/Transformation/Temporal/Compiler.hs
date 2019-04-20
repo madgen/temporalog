@@ -38,8 +38,9 @@ eliminateTemporal metadata program = do
 
   let newStatements = AG.StSentence . AG.SClause <$> newClauses
 
-  let newMetadata =
-        foldr' (uncurry MD.addAtemporal) metadata (M.toList newPredEnv)
+  let newMetadata = foldr' (uncurry MD.addAuxillaryAtemporalPred)
+                           metadata
+                           (M.toList newPredEnv)
 
   pure
     ( newMetadata
