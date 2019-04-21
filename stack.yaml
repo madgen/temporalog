@@ -4,7 +4,7 @@ packages:
 - .
 - location:
     git: https://github.com/madgen/vanillalog.git
-    commit: 288f0dbbc4f24e64432d53ebf9bbaee130097e5f
+    commit: 376e069843e109a08d2e997d56996b953767b090
   extra-dep: true
 - location:
     git: https://github.com/madgen/exalog.git
