@@ -21,6 +21,7 @@ import qualified Language.Exalog.Core as E
 import qualified Language.Exalog.Logger as Log
 import qualified Language.Exalog.Relation as R
 import           Language.Exalog.RangeRestriction (checkRangeRestriction)
+import           Language.Exalog.WellModing (checkWellModedness)
 
 import qualified Language.Vanillalog.AST as VA
 import qualified Language.Vanillalog.Generic.AST as AG
@@ -83,4 +84,5 @@ compiled :: Stage (E.Program 'E.ABase, R.Solution 'E.ABase)
 compiled file bs = do
   res@(pr, _) <- (normalised file >=> compile) bs
   checkRangeRestriction pr
+  checkWellModedness pr
   pure res

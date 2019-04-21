@@ -24,6 +24,7 @@ import Debug.Trace
 
 @idChar   = [a-zA-Z0-9_']
 @var      = [A-Z]@idChar*
+@wild     = _@var?
 @fxSym    = [a-z]@idChar*
 
 @int = 0|[1-9][0-9]*
@@ -81,6 +82,7 @@ token :-
 <scA>      true   { basic (TBool True) }
 <scA>      false  { basic (TBool False) }
 <scA>      @var   { useInput TVariable }
+<scA>      @wild  { basic TWildcard }
 <scA>      @int   { useInput (TInt . read . BS.unpack) }
 
 <scD>      @fxSym { enterStartCodeAnd scDA $ useInput TFxSym }
@@ -98,6 +100,7 @@ token :-
 <scBJ> true   { exitStartCodeAnd $ basic (TBool True) }
 <scBJ> false  { exitStartCodeAnd $ basic (TBool False) }
 <scBJ> @var   { exitStartCodeAnd $ useInput TVariable }
+<scBJ> @wild  { exitStartCodeAnd $ basic TWildcard }
 <scBJ> @int   { exitStartCodeAnd $ useInput (TInt . read . BS.unpack) }
 <scBJ> \"     { exitStartCodeAnd $ enterStartCodeAnd str $ skip }
 
@@ -135,6 +138,7 @@ data Token str =
   | TBind
   | TFxSym    { _tStr  :: str }
   | TVariable { _tStr  :: str }
+  | TWildcard
   | TStr      { _tStr  :: str }
   | TInt      { _tInt  :: Int }
   | TBool     { _tBool :: Bool }

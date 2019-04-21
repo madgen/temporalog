@@ -57,6 +57,7 @@ import Language.Temporalog.Parser.Lexer (Token(..), lex)
 
   fxSym    { L.Lexeme{L._token = TFxSym{}} }
   var      { L.Lexeme{L._token = TVariable{}} }
+  wild     { L.Lexeme{L._token = TWildcard} }
   str      { L.Lexeme{L._token = TStr{}} }
   int      { L.Lexeme{L._token = TInt{}} }
   bool     { L.Lexeme{L._token = TBool{}} }
@@ -135,6 +136,7 @@ TYPES :: { [ TermType ] }
 TERM :: { Term }
 : VAR  { TVar $1 }
 | SYM  { TSym $1 }
+| wild { TWild (span $1) }
 
 TYPE :: { TermType }
 : intType  { TTInt }

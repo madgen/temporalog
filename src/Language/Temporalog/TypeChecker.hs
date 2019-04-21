@@ -71,3 +71,4 @@ unify terms types = catMaybes <$> traverse go (zip terms types)
         then pure Nothing
         else Log.scold (Just . span $ sym) $
           "Expected a " <> pp tt <> " but got a " <> pp tt' <> "."
+  go (TWild{}, _) = pure Nothing
