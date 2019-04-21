@@ -17,7 +17,7 @@ module Language.Temporalog.Metadata
   , hasTiming
   ) where
 
-import Protolude
+import Protolude hiding (diff, pred)
 
 import           Data.List ((\\), nub, partition)
 import qualified Data.Map.Strict as M
@@ -28,7 +28,6 @@ import           Language.Exalog.Pretty.Helper
 import qualified Language.Exalog.Logger as Log
 import           Language.Exalog.SrcLoc (span, dummySpan)
 
-import           Language.Vanillalog.Generic.Pretty
 import qualified Language.Vanillalog.Generic.AST as AG
 
 import Language.Temporalog.AST
@@ -181,7 +180,7 @@ sentenceExistenceCheck sentences decls = forM_ decls $ \Declaration{..} -> do
     AG.SClause{_clause = AG.Clause{_head = sub}} -> Just $ name sub
 
 name :: Subgoal HOp term -> AG.PredicateSymbol
-name AG.SAtom{..}        = #_predSym _atom
+name AG.SAtom{..}          = #_predSym _atom
 name (SHeadJump _ sub _ _) = name sub
 
 -- |Check all predicates defined have corresponding declarations.

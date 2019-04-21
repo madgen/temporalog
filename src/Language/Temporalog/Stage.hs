@@ -70,7 +70,7 @@ vanilla file bs = do
 
 typeChecked :: Stage VA.Program
 typeChecked file bs = do
-  res@(meta, ast) <- vanilla file bs
+  res@(_, ast) <- vanilla file bs
   uncurry typeCheck res
   pure ast
 

@@ -39,12 +39,12 @@ toVanilla AG.Program{..} =
 
   goBody :: A.Subgoal (BOp 'ATemporal) Term
          -> Log.Logger (A.Subgoal A.Op Term)
-  goBody (SAtom span atom)    = pure $ A.SAtom span atom
-  goBody (SConj span phi psi) = A.SConj span <$> goBody phi <*> goBody psi
-  goBody (SDisj span phi psi) = A.SDisj span <$> goBody phi <*> goBody psi
-  goBody (SNeg span phi)      = A.SNeg span <$> goBody phi
-  goBody (SDogru span)        =
-    Log.scream (Just span) "True should have been eliminated by now."
+  goBody (SAtom s atom)    = pure $ A.SAtom s atom
+  goBody (SConj s phi psi) = A.SConj s <$> goBody phi <*> goBody psi
+  goBody (SDisj s phi psi) = A.SDisj s <$> goBody phi <*> goBody psi
+  goBody (SNeg  s phi)     = A.SNeg  s <$> goBody phi
+  goBody (SDogru s)        =
+    Log.scream (Just s) "True should have been eliminated by now."
 
 cleanseDogru :: A.Subgoal (BOp 'ATemporal) Term
              -> A.Subgoal (BOp 'ATemporal) Term

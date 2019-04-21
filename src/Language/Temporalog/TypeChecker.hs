@@ -3,7 +3,7 @@
 
 module Language.Temporalog.TypeChecker (typeCheck) where
 
-import Protolude
+import Protolude hiding (sym)
 
 import Data.List (lookup)
 import Data.Text (pack)

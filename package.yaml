@@ -21,6 +21,12 @@ default-extensions:
 - LambdaCase
 - OverloadedStrings
 
+ghc-options:
+- -Wall
+- -fwarn-tabs
+- -fwarn-incomplete-uni-patterns
+- -fwarn-incomplete-record-updates
+
 dependencies:
 - base >= 4.7 && < 5
 - bytestring >= 0.10 && < 0.11

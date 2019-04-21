@@ -10,13 +10,13 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Language.Temporalog.AST
-  ( Program(..)
-  , Statement(..)
+  ( Program
+  , Statement
   , Declaration(..)
-  , Sentence(..)
-  , Query(..)
-  , Clause(..)
-  , Fact(..)
+  , Sentence
+  , Query
+  , Clause
+  , Fact
   , Subgoal
   , pattern SAtom, pattern SNeg, pattern SConj, pattern SDisj
   , pattern SAtomF, pattern SNegF, pattern SConjF, pattern SDisjF
@@ -44,19 +44,13 @@ import Protolude hiding ((<>), empty)
 
 import Data.Functor.Foldable (Base, cata)
 
-import qualified Data.List.NonEmpty as NE
-
-import qualified Language.Exalog.Core as E
-
-import Text.PrettyPrint ((<+>), (<>), int, empty, punctuate, hcat)
+import Text.PrettyPrint ((<+>), (<>), empty, punctuate, hcat)
 
 import           Language.Exalog.Pretty.Helper ((<+?>), prettyC)
 
 import           Language.Exalog.SrcLoc
-import qualified Language.Exalog.Logger as L
 
 import qualified Language.Vanillalog.Generic.AST as AG
-import           Language.Vanillalog.Generic.Compiler (ClosureCompilable(..), Closure(..))
 import           Language.Vanillalog.Generic.Pretty ( Pretty(..)
                                                     , HasPrecedence(..)
                                                     )
@@ -178,7 +172,7 @@ instance HasFreeVariables (AG.AtomicFormula t)
     varAlg :: Base (AG.Subgoal HOp t) [ AG.Var ] -> [ AG.Var ]
     varAlg (SHeadJumpF _ vars _ term)   =
       case term of { AG.TVar v -> v : vars; _ -> vars }
-    varAlg (SAtomF _ atom)              = freeVars atom
+    varAlg (AG.SAtomF _ atom)              = freeVars atom
     varAlg (AG.SNullOpF _ _)            = []
     varAlg (AG.SUnOpF _ _ vars)         = vars
     varAlg (AG.SBinOpF _ _ vars1 vars2) = vars1 ++ vars2
@@ -191,7 +185,7 @@ instance HasFreeVariables (AG.AtomicFormula t)
     varAlg (SBodyJumpF _ vars _ term)   =
       case term of { AG.TVar v -> v : vars; _ -> vars }
     varAlg (SBindF _ _ var vars)        = filter (var /=) vars
-    varAlg (SAtomF _ atom)              = freeVars atom
+    varAlg (AG.SAtomF _ atom)              = freeVars atom
     varAlg (AG.SNullOpF _ _)            = []
     varAlg (AG.SUnOpF _ _ vars)         = vars
     varAlg (AG.SBinOpF _ _ vars1 vars2) = vars1 ++ vars2

@@ -10,9 +10,6 @@ module Language.Temporalog.Transformation.Temporal.Compiler
 
 import Protolude
 
-import Control.Arrow ((>>>))
-
-import           Data.Functor.Foldable (Base, cata, embed, ana, project)
 import           Data.List (nub)
 import           Data.Text (pack)
 import qualified Data.Map.Strict as M
@@ -22,7 +19,6 @@ import           Language.Exalog.SrcLoc (span, dummySpan)
 
 import qualified Language.Vanillalog.Generic.AST as AG
 import           Language.Vanillalog.Generic.Pretty (pp)
-import           Language.Vanillalog.Generic.Transformation.Util (Algebra, Coalgebra)
 
 import           Language.Temporalog.AST
 import qualified Language.Temporalog.Metadata as MD
@@ -109,7 +105,7 @@ eliminateTemporal metadata program = do
   goHead :: AG.Subgoal HOp Term -> ClauseM (AG.Subgoal (Const Void) Term)
   goHead AG.SAtom{..} =
     (\atom -> AG.SAtom{_atom = atom,..}) <$> compileAtom _atom
-  goHead (SHeadJump span child timePredSym time) =
+  goHead (SHeadJump _ child timePredSym time) =
     setClock timePredSym time (goHead child)
 
   goBody :: AG.Subgoal (BOp 'Temporal) Term
@@ -118,14 +114,14 @@ eliminateTemporal metadata program = do
   goBody AG.SAtom{..} =
     (\atom -> AG.SAtom{_atom = atom,..}) <$> compileAtom _atom
   -- Logical operators
-  goBody (SNeg span c)      = SNeg span  <$> goBody c
-  goBody (SConj span c1 c2) = SConj span <$> goBody c1 <*> goBody c2
-  goBody (SDisj span c1 c2) = SDisj span <$> goBody c1 <*> goBody c2
-  goBody (SDogru span)      = pure (SDogru span)
+  goBody (SNeg   s c)     = SNeg  s <$> goBody c
+  goBody (SConj  s c1 c2) = SConj s <$> goBody c1 <*> goBody c2
+  goBody (SDisj  s c1 c2) = SDisj s <$> goBody c1 <*> goBody c2
+  goBody (SDogru s)       = pure (SDogru s)
   -- Hybrid operators
-  goBody (SBodyJump span child timePredSym time) =
+  goBody (SBodyJump _ child timePredSym time) =
     setClock timePredSym time (goBody child)
-  goBody (SBind span timePredSym var child) = do
+  goBody (SBind _ timePredSym var child) = do
     timeTerm <- observeClock timePredSym
     newChild <- subst var timeTerm child
     goBody newChild
@@ -287,14 +283,6 @@ eliminateTemporal metadata program = do
 
     pure auxResult
 
-timeAtom :: MD.Metadata
-         -> PredicateSymbol
-         -> Term
-         -> ClauseM (Subgoal (BOp 'ATemporal) Term)
-timeAtom metadata predSym timeVar = do
-  wildcard <- freshTypedTimeVar metadata predSym
-  pure $ accessibilityAtom predSym timeVar (TVar wildcard)
-
 accessibilityAtom :: PredicateSymbol
                   -> Term
                   -> Term
@@ -304,17 +292,6 @@ accessibilityAtom predSym now next =
                                  , _predSym = predSym
                                  , _terms = [now, next]
                                  })
-
--- |A substitution that allows a constant to be the thing to be replaced.
--- It simply ignores it.
-subst' :: Term
-       -> Term
-       -> Subgoal (BOp a) Term
-       -> ClauseM (Subgoal (BOp a) Term)
-subst' key val exp =
-  case key of
-    TVar v -> subst v val exp
-    _      -> pure exp
 
 subst :: Var
       -> Term
@@ -494,13 +471,15 @@ runTypeEnvMT action = second snd <$> runStateT action (M.empty, M.empty)
 addAtomType :: AG.AtomicFormula Term -> ClauseM ()
 addAtomType AG.AtomicFormula{..} = do
   types <- (`traverse` _terms) $ \case
-    TVar v -> do
+    TVar v  -> do
       mType <- lift $ getVarType v
 
       maybe
         (lift . lift . lift . lift $ Log.scream (Just _span) $
           "Type of " <> pp v <> " is unknown.") pure mType
-    TSym s -> pure $ AG.termType s
+    TSym s  -> pure $ AG.termType s
+    TWild{} -> lift . lift . lift . lift $
+      Log.scream (Just _span) "No wildcards in auxillary atoms."
 
   lift $ modify (second (M.insert _predSym types))
 
@@ -526,7 +505,7 @@ addTimeVarType metadata var timePredSym = do
   predInfo <- lift . lift . lift . lift $ timePredSym `MD.lookupM` metadata
   case MD.typ predInfo of
     [ termType, _ ] -> addVarType var termType
-    ts              -> lift . lift . lift . lift $
+    _               -> lift . lift . lift . lift $
       Log.scream (Just $ span var) "Time predicate does not has arity 2."
 
 freshTypedTimeVar :: MD.Metadata -> AG.PredicateSymbol -> ClauseM Var

@@ -5,7 +5,6 @@ module Main where
 import Protolude
 
 import qualified Data.ByteString.Lazy.Char8 as BS
-import qualified Data.Text as T
 
 import           Language.Exalog.Pretty ()
 import qualified Language.Exalog.Solver as S
@@ -18,8 +17,6 @@ import Language.Vanillalog.Generic.CLI.Arguments
 import Language.Vanillalog.Generic.CLI.Util
 
 import qualified Language.Temporalog.Stage as Stage
-
-import Language.Temporalog.AST (Program)
 
 data Stage =
     TemporalLex

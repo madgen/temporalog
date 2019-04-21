@@ -3,13 +3,12 @@
 module Language.Temporalog.Parser.Lexer where
 
 import Prelude
-import Protolude (Text, bimap)
+import Protolude (Text)
 
 import           Data.Text.Lazy.Encoding (decodeUtf8)
 import           Data.Text.Lazy (toStrict)
 import qualified Data.ByteString.Lazy.Char8 as BS
 
-import           Language.Exalog.Error (Error(..), Severity(..))
 import           Language.Exalog.SrcLoc hiding (file)
 import qualified Language.Exalog.Logger as Log
 

@@ -5,8 +5,6 @@ module Language.Temporalog.Transformation.Declaration where
 
 import Protolude
 
-import qualified Language.Exalog.Logger as Log
-
 import qualified Language.Vanillalog.Generic.AST as AG
 
 import Language.Temporalog.AST
