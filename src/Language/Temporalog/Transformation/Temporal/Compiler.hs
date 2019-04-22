@@ -23,6 +23,7 @@ import           Language.Vanillalog.Generic.Pretty (pp)
 
 import           Language.Temporalog.AST
 import qualified Language.Temporalog.Metadata as MD
+import           Language.Temporalog.Transformation.Fresh
 
 eliminateTemporal :: MD.Metadata
                   -> AG.Program Void HOp (BOp 'Temporal)
@@ -31,7 +32,7 @@ eliminateTemporal :: MD.Metadata
                                  )
 eliminateTemporal metadata program = do
   let predSyms = map #_predSym (AG.atoms program :: [ AG.AtomicFormula Term ])
-  ((newProgram, newPredEnv), newClauses) <- runCompilerMT (goPr program) predSyms
+  ((newProgram, newPredEnv), newClauses) <- runCompilerT (goPr program) predSyms
 
   let newStatements = AG.StSentence . AG.SClause <$> newClauses
 
@@ -45,7 +46,7 @@ eliminateTemporal metadata program = do
     )
   where
   goPr :: AG.Program Void HOp (BOp 'Temporal)
-       -> CompilerMT Log.Logger
+       -> CompilerT Log.Logger
                      ( AG.Program Void (Const Void) (BOp 'ATemporal)
                      , PredTypeEnv
                      )
@@ -56,26 +57,26 @@ eliminateTemporal metadata program = do
          )
 
   goSt :: AG.Statement Void HOp (BOp 'Temporal)
-       -> CompilerMT Log.Logger
-                     ( AG.Statement Void (Const Void) (BOp 'ATemporal)
-                     , PredTypeEnv
-                     )
+       -> CompilerT Log.Logger
+                    ( AG.Statement Void (Const Void) (BOp 'ATemporal)
+                    , PredTypeEnv
+                    )
   goSt AG.StSentence{..} =
     first (\s -> AG.StSentence{_sentence = s,..}) <$> goSent _sentence
   goSt AG.StDeclaration{..} = absurd _declaration
 
   goSent :: AG.Sentence HOp (BOp 'Temporal)
-         -> CompilerMT Log.Logger
-                       ( AG.Sentence (Const Void) (BOp 'ATemporal)
-                       , PredTypeEnv
-                       )
+         -> CompilerT Log.Logger
+                      ( AG.Sentence (Const Void) (BOp 'ATemporal)
+                      , PredTypeEnv
+                      )
   goSent sent = do
     let sentVars = AG.vars sent
 
-    timePredicates <- lift $ timePreds metadata sent
+    timePredicates <- lift $ lift $ timePreds metadata sent
 
     (timeEnv, newTimeVars) <-
-      runFreshVarMT sentVars (freshTimeEnv timePredicates)
+      runFreshVarT "T" sentVars (freshTimeEnv timePredicates)
 
     runClauseM (sentVars <> newTimeVars) timeEnv $ do
       initTypeEnv metadata sent
@@ -93,13 +94,13 @@ eliminateTemporal metadata program = do
           AG.SQuery <$> case _head of
             Nothing -> pure $ AG.Query{_head = Nothing, _body = newBody,..}
             Just _ ->
-              lift $ lift $ lift $ lift $ Log.scream (Just $ span sent)
+              lift $ lift $ lift $ lift $ lift $ Log.scream (Just $ span sent)
                 "There shouldn't be any named queries at this stage."
 
   compileAtom :: AtomicFormula Term -> ClauseM (AtomicFormula Term)
   compileAtom atom = do
     timings <- MD.timingPreds
-           <$> (lift . lift . lift . lift) (#_predSym atom `MD.lookupM` metadata)
+           <$> (lift . lift . lift . lift . lift) (#_predSym atom `MD.lookupM` metadata)
     timeTerms <- traverse observeClock timings
     pure $ atom {_terms = _terms atom <> timeTerms}
 
@@ -135,7 +136,8 @@ eliminateTemporal metadata program = do
 
     let deltaFV = TVar <$> nub (freeVars phi)
 
-    uniqTimePreds <- lift $ lift $ lift $ lift $ uniqTimePredsM metadata rho
+    uniqTimePreds <-
+      lift $ lift $ lift $ lift $ lift $ uniqTimePredsM metadata rho
 
     delta <- traverse observeClock uniqTimePreds
 
@@ -169,7 +171,7 @@ eliminateTemporal metadata program = do
 
     let deltaFV = TVar <$> nub (freeVars rho)
 
-    uniqTimePreds <- lift $ lift $ lift $ lift $ uniqTimePredsM metadata rho
+    uniqTimePreds <- lift $ lift $ lift $ lift $ lift $ uniqTimePredsM metadata rho
 
     let timeTermsM = traverse observeClock uniqTimePreds
 
@@ -215,7 +217,8 @@ eliminateTemporal metadata program = do
 
     let delta   = TVar <$> nub (freeVars rho)
 
-    uniqTimePreds <- lift $ lift $ lift $ lift $ uniqTimePredsM metadata rho
+    uniqTimePreds <-
+      lift $ lift $ lift $ lift $ lift $ uniqTimePredsM metadata rho
 
     let timeTermsM = traverse observeClock uniqTimePreds
 
@@ -334,29 +337,25 @@ substParams var term = map (\case
 -- Necessary effects
 --------------------------------------------------------------------------------
 
-type CompilerMT = StateT ( ([ PredicateSymbol ], Int)
-                         , [ AG.Clause (Const Void) (BOp 'ATemporal) ]
-                         )
+type CompilerT m = FreshT (StateT [ AG.Clause (Const Void) (BOp 'ATemporal) ] m)
 
-runCompilerMT :: Monad m
-              => CompilerMT m a
+runCompilerT :: Monad m
+              => CompilerT m a
               -> [ PredicateSymbol ]
               -> m (a, [ AG.Clause (Const Void) (BOp 'ATemporal) ])
-runCompilerMT action predSyms = second snd <$> runStateT action ((predSyms, 1), [ ])
+runCompilerT action predSyms =
+  runStateT (runFreshPredSymT predSyms action) []
 
-addClause :: Monad m => AG.Clause (Const Void) (BOp 'ATemporal) -> CompilerMT m ()
-addClause clause = modify (second (clause :))
+runFreshPredSymT :: Monad m => [ PredicateSymbol ] -> FreshT m a -> m a
+runFreshPredSymT predSyms =
+  runFreshT (Just "aux") ((\(PredicateSymbol text) -> text) <$> predSyms)
 
-freshPredSym :: Monad m => CompilerMT m PredicateSymbol
-freshPredSym = do
-  (predSyms, ix) <- fst <$> get
-  modify (first (second (+ 1)))
+addClause :: Monad m
+          => AG.Clause (Const Void) (BOp 'ATemporal) -> CompilerT m ()
+addClause clause = lift $ modify (clause :)
 
-  let candidate = PredicateSymbol . fromString $ "aux" <> show ix
-
-  if candidate `elem` predSyms
-    then freshPredSym
-    else pure candidate
+freshPredSym :: Monad m => CompilerT m PredicateSymbol
+freshPredSym = PredicateSymbol <$> fresh
 
 type TimeEnv = M.Map PredicateSymbol Term
 type TimeEnvMT = ReaderT TimeEnv
@@ -374,31 +373,22 @@ observeClock :: PredicateSymbol -> ClauseM Term
 observeClock predSym = do
   env <- ask
   maybe
-    ( lift . lift . lift . lift
+    ( lift . lift . lift . lift . lift
     $ Log.scream Nothing (pp predSym <> " is not a key in the time environment.")
     )
     pure
     (predSym `M.lookup` env)
 
-type FreshVarMT = StateT ([ Var ], Int)
+runFreshVarT :: Monad m => Text -> [ Var ] -> FreshT m a -> m a
+runFreshVarT prefix reserved = runFreshT (Just prefix) (map _varName reserved)
 
-runFreshVarMT :: Monad m => [ Var ] -> FreshVarMT m a -> m a
-runFreshVarMT vars = (`evalStateT` (vars, 0))
-
-freshVar :: Monad m => FreshVarMT m Var
-freshVar = do
-  (vars, ix) <- get
-  put (vars, ix + 1)
-  if var ix `elem` vars
-    then freshVar
-    else pure $ var ix
-  where
-  var ix = Var dummySpan ("X" <> pack (show ix))
+freshVar :: Monad m => FreshT m Var
+freshVar = Var dummySpan <$> fresh
 
 freshTimeEnv :: [ PredicateSymbol ]
              -- The following is super ugly. It's time I switch to
              -- algebraic effects.
-             -> FreshVarMT (CompilerMT Log.Logger)
+             -> FreshT (CompilerT Log.Logger)
                   ( TimeEnv
                   , [ Var ] -- Newly generated vars
                   )
@@ -475,10 +465,10 @@ addAtomType AG.AtomicFormula{..} = do
       mType <- lift $ getVarType v
 
       maybe
-        (lift . lift . lift . lift $ Log.scream (Just _span) $
+        (lift . lift . lift . lift . lift $ Log.scream (Just _span) $
           "Type of " <> pp v <> " is unknown.") pure mType
     TSym s  -> pure $ AG.termType s
-    TWild{} -> lift . lift . lift . lift $
+    TWild{} -> lift . lift . lift . lift . lift $
       Log.scream (Just _span) "No wildcards in auxillary atoms."
 
   lift $ modify (second (M.insert _predSym types))
@@ -495,17 +485,18 @@ addVarType var termType = do
   case mType of
     Just termType'
       | termType == termType -> pure ()
-      | otherwise -> lift . lift . lift . lift $ Log.scream Nothing $
+      | otherwise -> lift . lift . lift . lift . lift $ Log.scream Nothing $
         "Variable " <> pp var <> " cannot have two types: " <>
         pp termType <> " and " <> pp termType'
     Nothing -> lift $ modify (first (M.insert var termType))
 
 addTimeVarType :: MD.Metadata -> Var -> PredicateSymbol -> ClauseM ()
 addTimeVarType metadata var timePredSym = do
-  predInfo <- lift . lift . lift . lift $ timePredSym `MD.lookupM` metadata
+  predInfo <- lift . lift . lift . lift . lift
+            $ timePredSym `MD.lookupM` metadata
   case MD.typ predInfo of
     [ termType, _ ] -> addVarType var termType
-    _               -> lift . lift . lift . lift $
+    _               -> lift . lift . lift . lift . lift $
       Log.scream (Just $ span var) "Time predicate does not has arity 2."
 
 freshTypedTimeVar :: MD.Metadata -> PredicateSymbol -> ClauseM Var
@@ -518,7 +509,8 @@ initTypeEnv :: MD.Metadata -> AG.Sentence a b -> ClauseM ()
 initTypeEnv metadata sentence = do
   let atoms = AG.atoms sentence
   forM_ atoms $ \AtomicFormula{..} -> do
-    predInfo <- lift . lift . lift . lift $ _predSym `MD.lookupM` metadata
+    predInfo <- lift . lift . lift . lift . lift
+              $ _predSym `MD.lookupM` metadata
     let varsTypes = (`mapMaybe` zip _terms (MD.typ predInfo)) $ \case
           (TVar var, termType) -> Just (var,termType)
           _                    -> Nothing
@@ -528,15 +520,15 @@ initTypeEnv metadata sentence = do
   forM_ (M.toList timeEnv) $ \(timePredSym, term) ->
     case term of
       TVar var -> addTimeVarType metadata var timePredSym
-      _        -> lift . lift . lift . lift $
+      _        -> lift . lift . lift . lift . lift $
         Log.scream (Just $ span sentence)
           "Initial time environment contains a non-var."
 
-type ClauseM = TimeEnvMT (TypeEnvMT (FreshVarMT (CompilerMT Log.Logger)))
+type ClauseM = TimeEnvMT (TypeEnvMT (FreshT (CompilerT Log.Logger)))
 
 runClauseM :: [ Var ]
            -> TimeEnv
            -> ClauseM a
-           -> CompilerMT Log.Logger (a, PredTypeEnv)
+           -> CompilerT Log.Logger (a, PredTypeEnv)
 runClauseM vars timeEnv action =
-  runFreshVarMT vars (runTypeEnvMT (runTimeEnvMT action timeEnv))
+  runFreshVarT "X" vars (runTypeEnvMT (runTimeEnvMT action timeEnv))
