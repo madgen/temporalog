@@ -29,7 +29,7 @@ module Language.Temporalog.AST
   , pattern SHeadJumpF, pattern SBodyJumpF, pattern SBindF
   , HOp(..), BOp(..), Temporal(..), AG.OpKind(..), AG.SomeOp(..)
   , AG.AtomicFormula(..)
-  , AG.PredicateSymbol(..)
+  , PredicateSymbol(..)
   , AG.Term(..)
   , AG.TermType(..)
   , AG.termType
@@ -48,6 +48,7 @@ import Text.PrettyPrint ((<+>), (<>), empty, punctuate, hcat)
 
 import           Language.Exalog.Pretty.Helper ((<+?>), prettyC)
 
+import           Language.Exalog.Core (PredicateSymbol(..))
 import           Language.Exalog.SrcLoc
 
 import qualified Language.Vanillalog.Generic.AST as AG
@@ -72,31 +73,31 @@ type Subgoal = AG.Subgoal
 data Declaration = Declaration
   { _span :: SrcSpan
   , _atomType :: AG.AtomicFormula AG.TermType
-  , _timePredSyms :: Maybe [ AG.PredicateSymbol ]
+  , _timePredSyms :: Maybe [ PredicateSymbol ]
   }
 
 data Temporal = Temporal | ATemporal
 
 data BOp (switch :: Temporal) (k :: AG.OpKind) where
-  Negation      ::                                  BOp a    'AG.Unary
-  Conjunction   ::                                  BOp a    'AG.Binary
-  Disjunction   ::                                  BOp a    'AG.Binary
+  Negation      ::                               BOp a    'AG.Unary
+  Conjunction   ::                               BOp a    'AG.Binary
+  Disjunction   ::                               BOp a    'AG.Binary
 
-  Dogru         ::                                  BOp a    'AG.Nullary
+  Dogru         ::                               BOp a    'AG.Nullary
 
-  AX            :: AG.PredicateSymbol ->            BOp 'Temporal 'AG.Unary
-  EX            :: AG.PredicateSymbol ->            BOp 'Temporal 'AG.Unary
-  AG            :: AG.PredicateSymbol ->            BOp 'Temporal 'AG.Unary
-  EG            :: AG.PredicateSymbol ->            BOp 'Temporal 'AG.Unary
-  AF            :: AG.PredicateSymbol ->            BOp 'Temporal 'AG.Unary
-  EF            :: AG.PredicateSymbol ->            BOp 'Temporal 'AG.Unary
-  AU            :: AG.PredicateSymbol ->            BOp 'Temporal 'AG.Binary
-  EU            :: AG.PredicateSymbol ->            BOp 'Temporal 'AG.Binary
-  Bind          :: AG.PredicateSymbol -> AG.Var  -> BOp 'Temporal 'AG.Unary
-  BodyJump      :: AG.PredicateSymbol -> AG.Term -> BOp 'Temporal 'AG.Unary
+  AX            :: PredicateSymbol ->            BOp 'Temporal 'AG.Unary
+  EX            :: PredicateSymbol ->            BOp 'Temporal 'AG.Unary
+  AG            :: PredicateSymbol ->            BOp 'Temporal 'AG.Unary
+  EG            :: PredicateSymbol ->            BOp 'Temporal 'AG.Unary
+  AF            :: PredicateSymbol ->            BOp 'Temporal 'AG.Unary
+  EF            :: PredicateSymbol ->            BOp 'Temporal 'AG.Unary
+  AU            :: PredicateSymbol ->            BOp 'Temporal 'AG.Binary
+  EU            :: PredicateSymbol ->            BOp 'Temporal 'AG.Binary
+  Bind          :: PredicateSymbol -> AG.Var  -> BOp 'Temporal 'AG.Unary
+  BodyJump      :: PredicateSymbol -> AG.Term -> BOp 'Temporal 'AG.Unary
 
 data HOp (k :: AG.OpKind) where
-  HeadJump      :: AG.PredicateSymbol -> AG.Term -> HOp 'AG.Unary
+  HeadJump      :: PredicateSymbol -> AG.Term -> HOp 'AG.Unary
 
 deriving instance Ord (HOp opKind)
 deriving instance Ord (BOp a opKind)

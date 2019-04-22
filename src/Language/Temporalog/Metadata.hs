@@ -33,7 +33,7 @@ import qualified Language.Vanillalog.Generic.AST as AG
 import Language.Temporalog.AST
 
 data Timing = Timing
-  { _predSym :: AG.PredicateSymbol
+  { _predSym :: PredicateSymbol
   , _type    :: TermType
   }
 
@@ -55,22 +55,22 @@ isAuxillary = _auxillary
 hasTiming :: PredicateInfo -> Bool
 hasTiming PredicateInfo{..} = not . null $ _timings
 
-timingPreds :: PredicateInfo -> [ AG.PredicateSymbol ]
+timingPreds :: PredicateInfo -> [ PredicateSymbol ]
 timingPreds PredicateInfo{..} = (\Timing{..} -> _predSym) <$> _timings
 
-type Metadata = M.Map AG.PredicateSymbol PredicateInfo
+type Metadata = M.Map PredicateSymbol PredicateInfo
 
-lookup :: AG.PredicateSymbol -> Metadata -> Maybe PredicateInfo
+lookup :: PredicateSymbol -> Metadata -> Maybe PredicateInfo
 lookup = M.lookup
 
-lookupM :: AG.PredicateSymbol -> Metadata -> Log.Logger PredicateInfo
+lookupM :: PredicateSymbol -> Metadata -> Log.Logger PredicateInfo
 lookupM predSym metadata =
   case predSym `lookup` metadata of
     Just predInfo -> pure predInfo
     Nothing -> Log.scream Nothing $ "No metadata for " <> pp predSym <> "."
 
 -- |Enter new predicate metadata
-addAuxillaryAtemporalPred :: AG.PredicateSymbol -> [ TermType ] -> Metadata -> Metadata
+addAuxillaryAtemporalPred :: PredicateSymbol -> [ TermType ] -> Metadata -> Metadata
 addAuxillaryAtemporalPred predSym predType =
   M.insert predSym $ PredicateInfo
     { _originalType = predType
@@ -110,7 +110,7 @@ processMetadata program = do
 
   pure $ timingMap `M.union` deductiveMap `M.union` temporalMap
   where
-  processATemporal :: Declaration -> (AG.PredicateSymbol, PredicateInfo)
+  processATemporal :: Declaration -> (PredicateSymbol, PredicateInfo)
   processATemporal Declaration{..} =
     ( #_predSym _atomType
     , PredicateInfo
@@ -122,7 +122,7 @@ processMetadata program = do
 
   processTemporal :: Metadata
                   -> Declaration
-                  -> Log.Logger (AG.PredicateSymbol, PredicateInfo)
+                  -> Log.Logger (PredicateSymbol, PredicateInfo)
   processTemporal metadata Declaration{..} = do
     tSyms <- maybe (Log.scream Nothing "Processing an atemporal predicate.") pure
       _timePredSyms
@@ -179,7 +179,7 @@ sentenceExistenceCheck sentences decls = forM_ decls $ \Declaration{..} -> do
     AG.SFact{_fact     = AG.Fact{_head   = sub}} -> Just $ name sub
     AG.SClause{_clause = AG.Clause{_head = sub}} -> Just $ name sub
 
-name :: Subgoal HOp term -> AG.PredicateSymbol
+name :: Subgoal HOp term -> PredicateSymbol
 name AG.SAtom{..}          = #_predSym _atom
 name (SHeadJump _ sub _ _) = name sub
 
@@ -201,7 +201,7 @@ declarationExistenceCheck sentences decls = forM_ sentences $ \case
 instance Pretty Metadata where
   pretty = PP.vcat . prettyC . M.toList
 
-instance Pretty (AG.PredicateSymbol, PredicateInfo) where
+instance Pretty (PredicateSymbol, PredicateInfo) where
   pretty (predSym, PredicateInfo{..}) =
     pretty AtomicFormula{ _span = dummySpan
                         , _predSym = predSym

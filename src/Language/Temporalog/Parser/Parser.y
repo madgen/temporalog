@@ -118,12 +118,12 @@ ATOM_TYPE :: { AtomicFormula TermType }
 : FX_SYM "(" TYPES ")" { AtomicFormula (transSpan (fst $1) (span $4)) (snd $1) (reverse $3) }
 | FX_SYM "("       ")" { AtomicFormula (transSpan (fst $1) (span $3)) (snd $1) [] }
 
-FX_SYMS :: { [ (SrcSpan, G.PredicateSymbol) ] }
+FX_SYMS :: { [ (SrcSpan, PredicateSymbol) ] }
 : FX_SYMS FX_SYM { $2 : $1 }
 | FX_SYM         { [ $1 ] }
 
-FX_SYM :: { (SrcSpan, G.PredicateSymbol) }
-: fxSym { (span $1, G.PredicateSymbol . pure . _tStr . L._token $ $1) }
+FX_SYM :: { (SrcSpan, PredicateSymbol) }
+: fxSym { (span $1, PredicateSymbol . _tStr . L._token $ $1) }
 
 TERMS :: { [ Term ] }
 : TERMS "," TERM { $3 : $1 }

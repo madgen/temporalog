@@ -10,6 +10,7 @@ module Language.Temporalog.Transformation.Temporal.Compiler
 
 import Protolude
 
+import           Data.String (fromString)
 import           Data.List (nub)
 import           Data.Text (pack)
 import qualified Data.Map.Strict as M
@@ -333,13 +334,13 @@ substParams var term = map (\case
 -- Necessary effects
 --------------------------------------------------------------------------------
 
-type CompilerMT = StateT ( ([ AG.PredicateSymbol ], Int)
+type CompilerMT = StateT ( ([ PredicateSymbol ], Int)
                          , [ AG.Clause (Const Void) (BOp 'ATemporal) ]
                          )
 
 runCompilerMT :: Monad m
               => CompilerMT m a
-              -> [ AG.PredicateSymbol ]
+              -> [ PredicateSymbol ]
               -> m (a, [ AG.Clause (Const Void) (BOp 'ATemporal) ])
 runCompilerMT action predSyms = second snd <$> runStateT action ((predSyms, 1), [ ])
 
@@ -351,13 +352,13 @@ freshPredSym = do
   (predSyms, ix) <- fst <$> get
   modify (first (second (+ 1)))
 
-  let candidate = PredicateSymbol [ "aux" <> pack (show ix) ]
+  let candidate = PredicateSymbol . fromString $ "aux" <> show ix
 
   if candidate `elem` predSyms
     then freshPredSym
     else pure candidate
 
-type TimeEnv = M.Map AG.PredicateSymbol Term
+type TimeEnv = M.Map PredicateSymbol Term
 type TimeEnvMT = ReaderT TimeEnv
 
 runTimeEnvMT :: Monad m => TimeEnvMT m a -> TimeEnv -> m a
@@ -366,11 +367,10 @@ runTimeEnvMT = runReaderT
 getTimeEnv :: Monad m => TimeEnvMT m TimeEnv
 getTimeEnv = ask
 
-setClock :: Monad m
-         => AG.PredicateSymbol -> Term -> TimeEnvMT m a -> TimeEnvMT m a
+setClock :: Monad m => PredicateSymbol -> Term -> TimeEnvMT m a -> TimeEnvMT m a
 setClock predSym time = local (M.insert predSym time)
 
-observeClock :: AG.PredicateSymbol -> ClauseM Term
+observeClock :: PredicateSymbol -> ClauseM Term
 observeClock predSym = do
   env <- ask
   maybe
@@ -395,7 +395,7 @@ freshVar = do
   where
   var ix = Var dummySpan ("X" <> pack (show ix))
 
-freshTimeEnv :: [ AG.PredicateSymbol ]
+freshTimeEnv :: [ PredicateSymbol ]
              -- The following is super ugly. It's time I switch to
              -- algebraic effects.
              -> FreshVarMT (CompilerMT Log.Logger)
@@ -408,11 +408,11 @@ freshTimeEnv timePreds = do
 
 
 uniqTimePredsM :: HasTimePredicates a
-               => MD.Metadata -> a -> Log.Logger [ AG.PredicateSymbol ]
+               => MD.Metadata -> a -> Log.Logger [ PredicateSymbol ]
 uniqTimePredsM metadata phi = nub . sort <$> timePreds metadata phi
 
 class HasTimePredicates a where
-  timePreds :: MD.Metadata -> a -> Log.Logger [ AG.PredicateSymbol ]
+  timePreds :: MD.Metadata -> a -> Log.Logger [ PredicateSymbol ]
 
 instance HasTimePredicates Sentence where
   timePreds metadata sent =
@@ -459,7 +459,7 @@ instance HasTimePredicates (AtomicFormula Term) where
     MD.timingPreds <$> _predSym `MD.lookupM` metadata
 
 type VarTypeEnv  = M.Map Var                TermType
-type PredTypeEnv = M.Map AG.PredicateSymbol [ TermType ]
+type PredTypeEnv = M.Map PredicateSymbol [ TermType ]
 
 type TypeEnv = (VarTypeEnv, PredTypeEnv)
 
@@ -500,7 +500,7 @@ addVarType var termType = do
         pp termType <> " and " <> pp termType'
     Nothing -> lift $ modify (first (M.insert var termType))
 
-addTimeVarType :: MD.Metadata -> Var -> AG.PredicateSymbol -> ClauseM ()
+addTimeVarType :: MD.Metadata -> Var -> PredicateSymbol -> ClauseM ()
 addTimeVarType metadata var timePredSym = do
   predInfo <- lift . lift . lift . lift $ timePredSym `MD.lookupM` metadata
   case MD.typ predInfo of
@@ -508,7 +508,7 @@ addTimeVarType metadata var timePredSym = do
     _               -> lift . lift . lift . lift $
       Log.scream (Just $ span var) "Time predicate does not has arity 2."
 
-freshTypedTimeVar :: MD.Metadata -> AG.PredicateSymbol -> ClauseM Var
+freshTypedTimeVar :: MD.Metadata -> PredicateSymbol -> ClauseM Var
 freshTypedTimeVar metadata timePredSym = do
   var <- lift $ lift freshVar
   addTimeVarType metadata var timePredSym

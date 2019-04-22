@@ -4,11 +4,11 @@ packages:
 - .
 - location:
     git: https://github.com/madgen/vanillalog.git
-    commit: 376e069843e109a08d2e997d56996b953767b090
+    commit: 0778df20672aff5265ee81f7eb7ca453ac8a0103
   extra-dep: true
 - location:
     git: https://github.com/madgen/exalog.git
-    commit: 46321b3ecea0f81e8cddc186cfba07d58cdf9cd9
+    commit: 23a89815b284f5f6ec3e3442aec5a5f5b2ca129c
   extra-dep: true
 - location:
     git: git@github.com:clash-lang/ghc-typelits-natnormalise
