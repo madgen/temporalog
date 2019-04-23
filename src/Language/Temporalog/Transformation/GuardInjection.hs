@@ -175,7 +175,7 @@ injectGuards metadata pr@Program{..} = runFreshPredSymT pr $ do
     -- |Exploit the fact that auxillary predicates are never acyclic except
     -- perhaps reflexive.
     chooseNode :: Gr.Context (PredicateBox 'ABase) b -> [ Gr.Node ]
-    chooseNode (_, _, pBox, nextNodes) = (`mapMaybe` nextNodes) $
+    chooseNode (nextNodes, _, pBox, _) = (`mapMaybe` nextNodes) $
       \(_, node) -> do
         pBox' <- Gr.lab depGr node
         if pBox /= pBox' && pBoxIsAuxillary pBox'
