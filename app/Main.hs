@@ -65,7 +65,8 @@ prettyPrint PPOptions{..} = do
     TemporalType     -> succeedOrDie (Stage.typeChecked file) bs $ void . pure
     Vanilla          -> succeedOrDie (fmap snd <$> Stage.vanilla file) bs $
       putStrLn . pp
-    VanillaNormal    -> succeedOrDie (Stage.normalised file) bs $ putStrLn . pp
+    VanillaNormal    -> succeedOrDie (fmap snd <$> Stage.normalised file) bs $
+      putStrLn . pp
     Exalog           -> succeedOrDie (Stage.compiled file) bs $
       \(exalogProgram, initEDB) -> do
         putStrLn $ pp exalogProgram

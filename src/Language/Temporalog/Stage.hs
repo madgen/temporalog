@@ -35,6 +35,7 @@ import qualified Language.Temporalog.Metadata as MD
 import qualified Language.Temporalog.Parser.Lexer as Lexer
 import qualified Language.Temporalog.Parser.Parser as Parser
 import           Language.Temporalog.Transformation.Declaration (removeDecls)
+import           Language.Temporalog.Transformation.GuardInjection (injectGuards)
 import           Language.Temporalog.Transformation.Temporal.Identities (applyTemporalIdentities)
 import           Language.Temporalog.Transformation.Temporal.Compiler (eliminateTemporal)
 import           Language.Temporalog.Transformation.Temporal.Vanilla (toVanilla)
@@ -68,21 +69,31 @@ vanilla file bs = do
   ast' <- toVanilla ast
   pure (meta, ast')
 
-typeChecked :: Stage VA.Program
+typeChecked :: Stage (MD.Metadata, VA.Program)
 typeChecked file bs = do
   res@(_, ast) <- vanilla file bs
   uncurry typeCheck res
-  pure ast
+  pure res
 
-namedQueries :: Stage VA.Program
-namedQueries file = typeChecked file >=> nameQueries
+namedQueries :: Stage (MD.Metadata, VA.Program)
+namedQueries file bs = do
+  (meta, ast) <- typeChecked file bs
+  ast' <- nameQueries ast
+  pure (meta, ast')
 
-normalised :: Stage VA.Program
-normalised file = namedQueries file >=> normalise
+normalised :: Stage (MD.Metadata, VA.Program)
+normalised file bs = do
+  (meta, ast) <- namedQueries file bs
+  ast' <- normalise ast
+  pure (meta, ast')
 
 compiled :: Stage (E.Program 'E.ABase, R.Solution 'E.ABase)
 compiled file bs = do
-  res@(pr, _) <- (normalised file >=> compile) bs
-  checkRangeRestriction pr
-  checkWellModedness pr
-  pure res
+  (meta, ast)   <- normalised file bs
+  res@(pr, sol) <- compile ast
+  pr'           <- injectGuards meta pr
+
+  checkRangeRestriction pr'
+  checkWellModedness pr'
+
+  pure (pr', sol)
