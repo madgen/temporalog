@@ -1,0 +1,23 @@
+.decl v(int,int).
+v(1,2).
+v(2,3).
+v(2,4).
+
+.decl v'(int,int).
+v'(T,T') :- v(T,T').
+v'(T',T')  :- v(T,T'), ! v(T',_).
+
+.decl q(int) @ v'.
+q(1000) @ v' 2.
+q(2000) @ v' 3.
+q(3000) @ v' 3.
+q(3000) @ v' 4.
+q(2000) @ v' 4.
+
+.decl x_gen(int).
+x_gen(3000).
+
+?- ! AX v' q(1000).            % T = 2; 3; 4
+?- AX v' q(2000).              % T = 2; 3; 4
+?- AX v' q(3000).              % T = 3; 4
+?- x_gen(X), AX v' AX v' q(X). % T = 1; 2; 3; 4
