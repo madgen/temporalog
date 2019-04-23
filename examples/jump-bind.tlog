@@ -5,7 +5,7 @@ v(2,4).
 
 .decl v'(int,int).
 v'(T,T') :- v(T,T').
-v'(T',T')  :- v(T,T'), ! v(T',T'').
+v'(T',T')  :- v(T,T'), ! v(T',_).
 
 .decl q() @ v'.
 q() @ v' 1.
