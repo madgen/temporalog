@@ -120,7 +120,7 @@ injectGuards metadata pr@Program{..} = runFreshPredSymT pr $ do
     (`traverse_` targetLits) $ \examinedLit -> do
       let targetClauses = search cluster (predicateBox examinedLit)
       (`traverse_` targetClauses) $ \targetClause@Clause{..} -> do
-        let newSubst = (subst `composeSubst` (examinedLit `deriveSubst` head))
+        let newSubst = subst `composeSubst` (examinedLit `deriveSubst` head)
 
         if isWellModed targetClause
           then modify (targetClause :)
