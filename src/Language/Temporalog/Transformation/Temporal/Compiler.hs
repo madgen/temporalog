@@ -78,6 +78,8 @@ eliminateTemporal metadata program = do
     (timeEnv, newTimeVars) <-
       runFreshVarT "T" sentVars (freshTimeEnv timePredicates)
 
+    let timeGuard = genTimeGuard timeEnv
+
     runClauseM (sentVars <> newTimeVars) timeEnv $ do
       initTypeEnv metadata sent
 
@@ -85,14 +87,20 @@ eliminateTemporal metadata program = do
         AG.SClause AG.Clause{..} -> do
           newHead <- goHead _head
           newBody <- goBody _body
-          pure $ AG.SClause AG.Clause {_head = newHead, _body = newBody,..}
+          pure $ AG.SClause AG.Clause
+            { _head = newHead
+            , _body = SConj _span timeGuard newBody
+            ,..}
         AG.SFact AG.Fact{..} -> do
           newHead <- goHead _head
           pure $ AG.SFact AG.Fact{_head = newHead,..}
         AG.SQuery AG.Query{..} -> do
           newBody <- goBody _body
           AG.SQuery <$> case _head of
-            Nothing -> pure $ AG.Query{_head = Nothing, _body = newBody,..}
+            Nothing -> pure $ AG.Query
+              { _head = Nothing
+              , _body = SConj _span timeGuard newBody
+              ,..}
             Just _ ->
               lift $ lift $ lift $ lift $ lift $ Log.scream (Just $ span sent)
                 "There shouldn't be any named queries at this stage."
@@ -286,6 +294,12 @@ eliminateTemporal metadata program = do
     let auxResult = SAtom span (aux1Atom {_terms = deltaFV <> delta})
 
     pure auxResult
+
+genTimeGuard :: TimeEnv -> AG.Subgoal (BOp 'ATemporal) Term
+genTimeGuard = M.foldr' (SConj dummySpan) (SDogru dummySpan)
+             . M.mapWithKey toGuard
+  where
+  toGuard predSym var = accessibilityAtom predSym var (TWild dummySpan)
 
 accessibilityAtom :: PredicateSymbol
                   -> Term
