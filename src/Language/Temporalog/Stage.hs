@@ -11,6 +11,8 @@ module Language.Temporalog.Stage
   , vanilla
   , normalised
   , compiled
+  , guardInjected
+  , dataflowSafe
   ) where
 
 import Protolude
@@ -71,7 +73,7 @@ vanilla file bs = do
 
 typeChecked :: Stage (MD.Metadata, VA.Program)
 typeChecked file bs = do
-  res@(_, ast) <- vanilla file bs
+  res <- vanilla file bs
   uncurry typeCheck res
   pure res
 
@@ -87,13 +89,24 @@ normalised file bs = do
   ast' <- normalise ast
   pure (meta, ast')
 
-compiled :: Stage (E.Program 'E.ABase, R.Solution 'E.ABase)
+compiled :: Stage (MD.Metadata, (E.Program 'E.ABase, R.Solution 'E.ABase))
 compiled file bs = do
-  (meta, ast)   <- normalised file bs
-  res@(pr, sol) <- compile ast
-  pr'           <- injectGuards meta pr
+  (meta, ast) <- normalised file bs
+  res         <- compile ast
 
-  checkRangeRestriction pr'
-  checkWellModedness pr'
+  pure (meta, res)
+
+guardInjected :: Stage (E.Program 'E.ABase, R.Solution 'E.ABase)
+guardInjected file bs = do
+  (meta, (pr, sol)) <- compiled file bs
+  pr'               <- injectGuards meta pr
 
   pure (pr', sol)
+
+dataflowSafe :: Stage (E.Program 'E.ABase, R.Solution 'E.ABase)
+dataflowSafe file bs = do
+  res@(pr, _) <- guardInjected file bs
+  checkRangeRestriction pr
+  checkWellModedness pr
+
+  pure res

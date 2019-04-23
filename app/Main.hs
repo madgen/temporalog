@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Main where
@@ -6,6 +7,8 @@ import Protolude
 
 import qualified Data.ByteString.Lazy.Char8 as BS
 
+import qualified Language.Exalog.Core as E
+import qualified Language.Exalog.Relation as R
 import           Language.Exalog.Pretty ()
 import qualified Language.Exalog.Solver as S
 
@@ -28,23 +31,27 @@ data Stage =
   | Vanilla
   | VanillaNormal
   | Exalog
+  | ExalogGuard
+  | ExalogDataflow
 
 stageParser :: Parser Stage
 stageParser =
-     stageFlag' TemporalLex      "lex"           "Tokenize"
- <|> stageFlag' TemporalParse    "parse"         "Parse"
- <|> stageFlag' TemporalMeta     "metadata"      "Dump metadata"
- <|> stageFlag' TemporalNoDecl   "no-decl"       "Remove declarations"
- <|> stageFlag' TemporalNoTime   "no-time"       "Eliminate temporal ops"
- <|> stageFlag' TemporalType     "typecheck"     "Type check"
- <|> stageFlag' Vanilla          "vanilla"       "Vanilla"
- <|> stageFlag' VanillaNormal    "normal"        "Normalise"
- <|> stageFlag' Exalog           "exalog"        "Compiled Exalog program"
+     stageFlag' TemporalLex    "lex"       "Tokenize"
+ <|> stageFlag' TemporalParse  "parse"     "Parse"
+ <|> stageFlag' TemporalMeta   "metadata"  "Dump metadata"
+ <|> stageFlag' TemporalNoDecl "no-decl"   "Remove declarations"
+ <|> stageFlag' TemporalNoTime "no-time"   "Eliminate temporal ops"
+ <|> stageFlag' TemporalType   "typecheck" "Type check"
+ <|> stageFlag' Vanilla        "vanilla"   "Vanilla"
+ <|> stageFlag' VanillaNormal  "normal"    "Normalise"
+ <|> stageFlag' Exalog         "exalog"    "Compiled Exalog program"
+ <|> stageFlag' ExalogGuard    "guard"     "Guard injection Exalog program"
+ <|> stageFlag' ExalogDataflow "checked"   "Well-moded and range-restricted"
 
 run :: RunOptions -> IO ()
 run RunOptions{..} = do
   bs <- BS.fromStrict . encodeUtf8 <$> readFile file
-  succeedOrDie (Stage.compiled file >=> uncurry S.solve) bs $
+  succeedOrDie (Stage.dataflowSafe file >=> uncurry S.solve) bs $
       putStrLn . pp
 
 repl :: ReplOptions -> IO ()
@@ -67,11 +74,18 @@ prettyPrint PPOptions{..} = do
       putStrLn . pp
     VanillaNormal    -> succeedOrDie (fmap snd <$> Stage.normalised file) bs $
       putStrLn . pp
-    Exalog           -> succeedOrDie (Stage.compiled file) bs $
-      \(exalogProgram, initEDB) -> do
-        putStrLn $ pp exalogProgram
-        putStrLn ("" :: Text)
-        putStrLn $ pp initEDB
+    Exalog           -> succeedOrDie (fmap snd <$> Stage.compiled file) bs
+      printExalog
+    ExalogGuard      -> succeedOrDie (Stage.guardInjected file) bs
+      printExalog
+    ExalogDataflow   -> succeedOrDie (Stage.dataflowSafe file) bs
+      printExalog
+
+printExalog :: (E.Program 'E.ABase, R.Solution 'E.ABase) -> IO ()
+printExalog (exalogProgram, initEDB) = do
+  putStrLn $ pp exalogProgram
+  putStrLn ("" :: Text)
+  putStrLn $ pp initEDB
 
 main :: IO ()
 main = do
