@@ -1,5 +1,7 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Language.Temporalog.Transformation.GuardInjection
   ( injectGuards
@@ -7,20 +9,39 @@ module Language.Temporalog.Transformation.GuardInjection
 
 import Protolude hiding (head)
 
-import           Data.List ((\\))
-import qualified Data.List.NonEmpty as NE
 import qualified Data.Graph.Inductive as Gr
+import           Data.List ((\\), nub, lookup)
+import qualified Data.List.NonEmpty as NE
+import           Data.Singletons (sing)
+import           Data.Singletons.TypeLits (SNat)
+import qualified Data.Vector.Sized as V
 
 import           Language.Exalog.Adornment (adornProgram)
 import           Language.Exalog.Core
 import           Language.Exalog.Dependency
 import           Language.Exalog.Logger
+import           Language.Exalog.SrcLoc (span)
 import           Language.Exalog.WellModing (isWellModed, checkWellModability)
 
 import qualified Language.Temporalog.Metadata as MD
+import           Language.Temporalog.Transformation.Fresh
+
+type Injection = FreshT Logger
+
+runFreshPredSymT :: Monad m => Program 'ABase -> FreshT m a -> m a
+runFreshPredSymT Program{clauses = clauses} =
+  runFreshT (Just "guard") ((\(PredicateSymbol text) -> text) <$> predSyms)
+  where
+  predSyms = join $ (`map` clauses) $ \Clause{..} ->
+    predSym head : (predSym <$> NE.toList body)
+
+  predSym Literal{predicate = Predicate{..}} = fxSym
+
+freshPredSym :: Monad m => FreshT m PredicateSymbol
+freshPredSym = PredicateSymbol <$> fresh
 
 injectGuards :: MD.Metadata -> Program 'ABase -> Logger (Program 'ABase)
-injectGuards metadata pr@Program{..} = do
+injectGuards metadata pr@Program{..} = runFreshPredSymT pr $ do
   injectedClausess <- traverse assessAndTransform temporalClusters
 
   pure $ Program
@@ -34,17 +55,87 @@ injectGuards metadata pr@Program{..} = do
   aTemporalClauses =
     clauses \\ mconcat (map (\Program{clauses = clss} -> clss) temporalClusters)
 
-  assessAndTransform :: Program 'ABase -> Logger [ Clause 'ABase ]
+  assessAndTransform :: Program 'ABase -> Injection [ Clause 'ABase ]
   assessAndTransform cluster@Program{clauses = clss}
     | isWellModed cluster = pure clss
     | otherwise = do
-      checkWellModability (adornProgram cluster)
+      lift $ checkWellModability (adornProgram cluster)
       injectGuard cluster
 
-  injectGuard :: Program 'ABase -> Logger [ Clause 'ABase ]
-  injectGuard Program{clauses = topClause : auxClauses} = _
-  injectGuard Program{clauses = []} =
+  injectGuard :: Program 'ABase -> Injection [ Clause 'ABase ]
+  injectGuard cluster@Program{clauses = topClause : _} = do
+    let (guardLits, bodyMinusGuard) = findGuard topClause
+
+    case NE.nonEmpty guardLits of
+      Just guardBody -> do
+        guardSym <- freshPredSym
+
+        let guardVars = nub . fmap TVar . join $ variables <$> guardLits
+
+        V.withSizedList guardVars $ \(guardTerms :: V.Vector n Term) -> do
+
+          let guardPred = Predicate
+                { annotation = PredABase $ span topClause
+                , fxSym      = guardSym
+                , arity      = sing :: SNat n
+                , nature     = Logical
+                }
+
+          let guardHead = Literal
+                { annotation = LitABase $ span topClause
+                , polarity   = Positive
+                , predicate  = guardPred
+                , terms      = guardTerms
+                }
+
+          let guardClause = Clause
+                { annotation = ClABase $ span topClause
+                , head       = guardHead
+                , body       = guardBody
+                }
+
+          let newTopClause = Clause
+                { annotation = ClABase $ span topClause
+                , head       = head topClause
+                , body       = NE.cons guardHead bodyMinusGuard
+                }
+
+          newAuxClss <- (`execStateT` []) $
+            enterAuxillary
+              guardHead cluster (unitSubst guardHead) bodyMinusGuard
+
+          pure $ newTopClause : guardClause : newAuxClss
+
+      Nothing -> lift $ scold (Just $ span topClause) "Clause is ill-moded."
+  injectGuard Program{clauses = []} = lift $
     scream Nothing "Empty cluster during guard injection."
+
+  enterAuxillary :: Literal 'ABase  -- Guard literal
+                 -> Program 'ABase  -- Cluster
+                 -> VarSubstitution -- Mapping needed for the guard literal
+                 -> Body 'ABase     -- Auxillary body being examined
+                 -> StateT [ Clause 'ABase ] Injection ()
+  enterAuxillary guardLit cluster subst examinedBody = do
+    let targetLits = NE.filter (pBoxIsAuxillary . predicateBox) examinedBody
+    (`traverse_` targetLits) $ \examinedLit -> do
+      let targetClauses = search cluster (predicateBox examinedLit)
+      (`traverse_` targetClauses) $ \targetClause@Clause{..} -> do
+        let newSubst = (subst `composeSubst` (examinedLit `deriveSubst` head))
+
+        if isWellModed targetClause
+          then modify (targetClause :)
+          else do
+            let newGuardLit = newSubst `substLit` guardLit
+            modify (targetClause {body = NE.cons newGuardLit body} :)
+
+        enterAuxillary guardLit cluster newSubst body
+
+  findGuard :: Clause 'ABase
+            -> ( [ Literal 'ABase ] -- |Guard
+               , Body 'ABase        -- |Rest of the body
+               )
+  findGuard Clause{body = body} =
+    second NE.fromList . NE.span (pBoxIsAuxillary . predicateBox) $ body
 
   topLevelTemporalClauses :: [ Clause 'ABase ]
   topLevelTemporalClauses = filter isTopLevelTemporal clauses
@@ -100,3 +191,36 @@ injectGuards metadata pr@Program{..} = do
     , queryPreds = [ predicateBox . head $ cl ]
     , annotation = annotation
     }
+
+--------------------------------------------------------------------------------
+-- Variable substitutions
+--------------------------------------------------------------------------------
+
+type VarSubstitution = [ (Var, Var) ]
+
+unitSubst :: Literal a -> VarSubstitution
+unitSubst Literal{terms = ts} =
+  mapMaybe (\case {TVar v -> Just (v,v); _ -> Nothing}) $ V.toList ts
+
+-- |Derive a substitution by diffing two literals. Result when applied to
+-- the first literal should make it look more like the second.
+deriveSubst :: Literal a -> Literal a -> VarSubstitution
+deriveSubst Literal{terms = ts} Literal{terms = ts'} =
+  catMaybes $ zipWith pickSubst (V.toList ts) (V.toList ts')
+  where
+  pickSubst (TVar v) (TVar v') = Just (v,v')
+  pickSubst _        _         = Nothing
+
+substLit :: VarSubstitution -> Literal a -> Literal a
+substLit subst Literal{..} = Literal
+  { terms = substTerm subst <$> terms
+  , ..}
+
+-- |Replace variables using the substitution or make them wildcard if you
+-- cannot find them.
+substTerm :: VarSubstitution -> Term -> Term
+substTerm subst (TVar v) = maybe TWild TVar (v `lookup` subst)
+substTerm _     t        = t
+
+composeSubst :: VarSubstitution -> VarSubstitution -> VarSubstitution
+composeSubst s s' = (`mapMaybe` s) $ \(x,y) -> (x,) <$> (y `lookup` s')
