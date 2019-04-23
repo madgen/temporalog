@@ -135,7 +135,7 @@ injectGuards metadata pr@Program{..} = runFreshPredSymT pr $ do
                , Body 'ABase        -- |Rest of the body
                )
   findGuard Clause{body = body} =
-    second NE.fromList . NE.span (pBoxIsAuxillary . predicateBox) $ body
+    second NE.fromList . NE.span (not . pBoxIsAuxillary . predicateBox) $ body
 
   topLevelTemporalClauses :: [ Clause 'ABase ]
   topLevelTemporalClauses = filter isTopLevelTemporal clauses
