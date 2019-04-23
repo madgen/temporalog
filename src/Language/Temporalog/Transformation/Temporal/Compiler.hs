@@ -416,15 +416,16 @@ instance HasTimePredicates Sentence where
 instance HasTimePredicates (Subgoal HOp Term) where
   timePreds metadata rho =
     case rho of
-      AG.SAtom{..}              -> timePreds metadata _atom
-      SHeadJump _ phi predSym _ -> (predSym :)
-                               <$> timePreds metadata phi
+      AG.SAtom{..}               -> timePreds metadata _atom
+      SHeadJump _ phi timePred _ -> filter (/= timePred)
+                                <$> timePreds metadata phi
 
 instance HasTimePredicates (Subgoal (BOp 'Temporal) Term) where
   timePreds metadata rho =
     case rho of
       AG.SAtom{..}               -> timePreds metadata _atom
-      SBodyJump _ phi timePred _ -> (timePred :) <$> timePreds metadata phi
+      SBodyJump _ phi timePred _ -> filter (/= timePred)
+                                <$> timePreds metadata phi
       SBind _ timePred _ phi     -> (timePred :) <$> timePreds metadata phi
       SEX _ timePred phi         -> (timePred :) <$> timePreds metadata phi
       SAX _ timePred phi         -> (timePred :) <$> timePreds metadata phi
