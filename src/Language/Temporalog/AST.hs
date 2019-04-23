@@ -78,7 +78,7 @@ data Declaration = Declaration
 
 data Temporal = Temporal | ATemporal
 
-data BOp (switch :: Temporal) (k :: AG.OpKind) where
+data BOp :: Temporal -> AG.OpKind -> Type where
   Negation      ::                               BOp a    'AG.Unary
   Conjunction   ::                               BOp a    'AG.Binary
   Disjunction   ::                               BOp a    'AG.Binary
@@ -96,7 +96,7 @@ data BOp (switch :: Temporal) (k :: AG.OpKind) where
   Bind          :: PredicateSymbol -> AG.Var  -> BOp 'Temporal 'AG.Unary
   BodyJump      :: PredicateSymbol -> AG.Term -> BOp 'Temporal 'AG.Unary
 
-data HOp (k :: AG.OpKind) where
+data HOp :: AG.OpKind -> Type where
   HeadJump      :: PredicateSymbol -> AG.Term -> HOp 'AG.Unary
 
 deriving instance Ord (HOp opKind)
