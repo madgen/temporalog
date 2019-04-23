@@ -20,6 +20,7 @@ import           Language.Exalog.Adornment (adornProgram)
 import           Language.Exalog.Core
 import           Language.Exalog.Dependency
 import           Language.Exalog.Logger
+import           Language.Exalog.RangeRestriction (isRangeRestricted)
 import           Language.Exalog.SrcLoc (span)
 import           Language.Exalog.WellModing (isWellModed, checkWellModability)
 
@@ -57,7 +58,7 @@ injectGuards metadata pr@Program{..} = runFreshPredSymT pr $ do
 
   assessAndTransform :: Program 'ABase -> Injection [ Clause 'ABase ]
   assessAndTransform cluster@Program{clauses = clss}
-    | isWellModed cluster = pure clss
+    | isWellModed cluster && isRangeRestricted cluster = pure clss
     | otherwise = do
       lift $ checkWellModability (adornProgram cluster)
       injectGuard cluster
@@ -100,9 +101,10 @@ injectGuards metadata pr@Program{..} = runFreshPredSymT pr $ do
                 , body       = NE.cons guardHead bodyMinusGuard
                 }
 
+          let topHead = predicateBox $ head topClause
           newAuxClss <- (`execStateT` []) $
             enterAuxillary
-              guardHead cluster (unitSubst guardHead) bodyMinusGuard
+              guardHead cluster (unitSubst guardHead) topHead bodyMinusGuard
 
           pure $ newTopClause : guardClause : newAuxClss
 
@@ -110,25 +112,28 @@ injectGuards metadata pr@Program{..} = runFreshPredSymT pr $ do
   injectGuard Program{clauses = []} = lift $
     scream Nothing "Empty cluster during guard injection."
 
-  enterAuxillary :: Literal 'ABase  -- Guard literal
-                 -> Program 'ABase  -- Cluster
-                 -> VarSubstitution -- Mapping needed for the guard literal
-                 -> Body 'ABase     -- Auxillary body being examined
+  enterAuxillary :: Literal 'ABase      -- Guard literal
+                 -> Program 'ABase      -- Cluster
+                 -> VarSubstitution     -- Mapping needed for the guard literal
+                 -> PredicateBox 'ABase -- Head of the clause being examined
+                 -> Body 'ABase         -- Auxillary body being examined
                  -> StateT [ Clause 'ABase ] Injection ()
-  enterAuxillary guardLit cluster subst examinedBody = do
-    let targetLits = NE.filter (pBoxIsAuxillary . predicateBox) examinedBody
+  enterAuxillary guardLit cluster subst headPBox examinedBody = do
+    let targetLits = (`NE.filter` examinedBody) $ \lit -> runIdentity $ do
+          let pBox = predicateBox lit
+          pure $ pBox /= headPBox && pBoxIsAuxillary pBox
     (`traverse_` targetLits) $ \examinedLit -> do
       let targetClauses = search cluster (predicateBox examinedLit)
       (`traverse_` targetClauses) $ \targetClause@Clause{..} -> do
         let newSubst = subst `composeSubst` (examinedLit `deriveSubst` head)
 
-        if isWellModed targetClause
+        if isWellModed targetClause && isRangeRestricted targetClause
           then modify (targetClause :)
           else do
             let newGuardLit = newSubst `substLit` guardLit
             modify (targetClause {body = NE.cons newGuardLit body} :)
 
-        enterAuxillary guardLit cluster newSubst body
+        enterAuxillary guardLit cluster newSubst (predicateBox head) body
 
   findGuard :: Clause 'ABase
             -> ( [ Literal 'ABase ] -- |Guard
@@ -157,6 +162,9 @@ injectGuards metadata pr@Program{..} = runFreshPredSymT pr $ do
   depGr :: DependencyGr 'ABase
   depGr = dependencyGr . decorate $ pr
 
+  bodyAuxillaries :: Body 'ABase -> [ PredicateBox 'ABase ]
+  bodyAuxillaries phi = filter pBoxIsAuxillary $ NE.toList (predicateBox <$> phi)
+
   -- |Find auxillary predicates that appear in the body of the clause and
   -- find the auxillary predicates that appear in the defining clauses of
   -- those auxillary predicates and so on.
@@ -167,10 +175,7 @@ injectGuards metadata pr@Program{..} = runFreshPredSymT pr $ do
     -- |All the auxillary nodes that appear in clause body
     initialNodes :: [ Gr.Node ]
     initialNodes = (`mapMaybe` Gr.labNodes depGr) $ \(node, pBox) ->
-      if pBox `elem` bodyAuxillaries then Just node else Nothing
-
-    bodyAuxillaries :: [ PredicateBox 'ABase ]
-    bodyAuxillaries = filter pBoxIsAuxillary $ NE.toList (predicateBox <$> body)
+      if pBox `elem` bodyAuxillaries body then Just node else Nothing
 
     -- |Exploit the fact that auxillary predicates are never acyclic except
     -- perhaps reflexive.
