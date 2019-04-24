@@ -177,7 +177,8 @@ eliminateTemporal metadata program = do
     -- Get an axuillary predicate and its de facto atom
     auxPredSym <- (lift . lift . lift) freshPredSym
 
-    [ x, y ] <- replicateM 2 $ TVar <$> freshTypedTimeVar metadata timePredSym
+    x <- TVar <$> freshTypedTimeVar metadata timePredSym
+    y <- TVar <$> freshTypedTimeVar metadata timePredSym
 
     let deltaFV = TVar <$> nub (freeVars rho)
 
@@ -216,11 +217,13 @@ eliminateTemporal metadata program = do
 
     pure auxResult
   goBody rho@(SEG span (Exp timePredSym) phi) = do
-    [ aux1PredSym, aux2PredSym ]  <-
-      replicateM 2 $ (lift . lift . lift) freshPredSym
+    aux1PredSym <- (lift . lift . lift) freshPredSym
+    aux2PredSym <- (lift . lift . lift) freshPredSym
 
     -- auxillary variables used to advance time (among other things)
-    [x, y, z] <- replicateM 3 $ TVar <$> freshTypedTimeVar metadata timePredSym
+    x <- TVar <$> freshTypedTimeVar metadata timePredSym
+    y <- TVar <$> freshTypedTimeVar metadata timePredSym
+    z <- TVar <$> freshTypedTimeVar metadata timePredSym
 
     -- Time parameters
     let deltaFV = TVar <$> nub (freeVars rho)

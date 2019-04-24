@@ -1,14 +1,14 @@
-resolver: lts-12.9
+resolver: lts-13.18
 
 packages:
 - .
 - location:
     git: https://github.com/madgen/vanillalog.git
-    commit: 0778df20672aff5265ee81f7eb7ca453ac8a0103
+    commit: a4afb5fe1c7afe8fd4cc783573e1ff08f31291ea
   extra-dep: true
 - location:
     git: https://github.com/madgen/exalog.git
-    commit: 357deb1cd1f5f139345b9bfaefac8af6e219d533
+    commit: e1d4a18a4604c7036480291acb0d08850f389fac
   extra-dep: true
 - location:
     git: git@github.com:clash-lang/ghc-typelits-natnormalise
