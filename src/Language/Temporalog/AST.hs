@@ -123,18 +123,18 @@ pattern SDisj span sub1 sub2 = AG.SBinOp span Disjunction sub1 sub2
 
 pattern SDogru span = AG.SNullOp span Dogru
 
-pattern SAX span timePredSym child = AG.SUnOp span (AX timePredSym) child
-pattern SEX span timePredSym child = AG.SUnOp span (EX timePredSym) child
-pattern SAG span timePredSym child = AG.SUnOp span (AG timePredSym) child
-pattern SEG span timePredSym child = AG.SUnOp span (EG timePredSym) child
-pattern SAF span timePredSym child = AG.SUnOp span (AF timePredSym) child
-pattern SEF span timePredSym child = AG.SUnOp span (EF timePredSym) child
-pattern SAU span timePredSym child1 child2 = AG.SBinOp span (AU timePredSym) child1 child2
-pattern SEU span timePredSym child1 child2 = AG.SBinOp span (EU timePredSym) child1 child2
+pattern SAX span timeSym phi = AG.SUnOp span (AX timeSym) phi
+pattern SEX span timeSym phi = AG.SUnOp span (EX timeSym) phi
+pattern SAG span timeSym phi = AG.SUnOp span (AG timeSym) phi
+pattern SEG span timeSym phi = AG.SUnOp span (EG timeSym) phi
+pattern SAF span timeSym phi = AG.SUnOp span (AF timeSym) phi
+pattern SEF span timeSym phi = AG.SUnOp span (EF timeSym) phi
+pattern SAU span timeSym phi psi = AG.SBinOp span (AU timeSym) phi psi
+pattern SEU span timeSym phi psi = AG.SBinOp span (EU timeSym) phi psi
 
-pattern SBind     span timePredSym var child  = AG.SUnOp span (Bind     timePredSym var) child
-pattern SHeadJump span child timePredSym time = AG.SUnOp span (HeadJump timePredSym time) child
-pattern SBodyJump span child timePredSym time = AG.SUnOp span (BodyJump timePredSym time) child
+pattern SBind     span timeSym var phi  = AG.SUnOp span (Bind     timeSym var)  phi
+pattern SHeadJump span phi timeSym time = AG.SUnOp span (HeadJump timeSym time) phi
+pattern SBodyJump span phi timeSym time = AG.SUnOp span (BodyJump timeSym time) phi
 
 pattern SAtomF span atom          = AG.SAtomF span atom
 pattern SNegF  span child         = AG.SUnOpF span Negation child
@@ -143,18 +143,18 @@ pattern SDisjF span child1 child2 = AG.SBinOpF span Disjunction child1 child2
 
 pattern SDogruF span = AG.SNullOpF span Dogru
 
-pattern SAXF span timePredSym child = AG.SUnOpF span (AX timePredSym) child
-pattern SEXF span timePredSym child = AG.SUnOpF span (EX timePredSym) child
-pattern SAGF span timePredSym child = AG.SUnOpF span (AG timePredSym) child
-pattern SEGF span timePredSym child = AG.SUnOpF span (EG timePredSym) child
-pattern SAFF span timePredSym child = AG.SUnOpF span (AF timePredSym) child
-pattern SEFF span timePredSym child = AG.SUnOpF span (EF timePredSym) child
-pattern SAUF span timePredSym child1 child2 = AG.SBinOpF span (AU timePredSym) child1 child2
-pattern SEUF span timePredSym child1 child2 = AG.SBinOpF span (EU timePredSym) child1 child2
+pattern SAXF span timeSym child = AG.SUnOpF span (AX timeSym) child
+pattern SEXF span timeSym child = AG.SUnOpF span (EX timeSym) child
+pattern SAGF span timeSym child = AG.SUnOpF span (AG timeSym) child
+pattern SEGF span timeSym child = AG.SUnOpF span (EG timeSym) child
+pattern SAFF span timeSym child = AG.SUnOpF span (AF timeSym) child
+pattern SEFF span timeSym child = AG.SUnOpF span (EF timeSym) child
+pattern SAUF span timeSym child1 child2 = AG.SBinOpF span (AU timeSym) child1 child2
+pattern SEUF span timeSym child1 child2 = AG.SBinOpF span (EU timeSym) child1 child2
 
-pattern SBindF     span timePredSym var child  = AG.SUnOpF span (Bind     timePredSym var) child
-pattern SHeadJumpF span child timePredSym time = AG.SUnOpF span (HeadJump timePredSym time) child
-pattern SBodyJumpF span child timePredSym time = AG.SUnOpF span (BodyJump timePredSym time) child
+pattern SBindF     span timeSym var child  = AG.SUnOpF span (Bind     timeSym var) child
+pattern SHeadJumpF span child timeSym time = AG.SUnOpF span (HeadJump timeSym time) child
+pattern SBodyJumpF span child timeSym time = AG.SUnOpF span (BodyJump timeSym time) child
 
 -------------------------------------------------------------------------------
 -- Utility functions
