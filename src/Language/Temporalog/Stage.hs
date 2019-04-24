@@ -61,7 +61,7 @@ metadata file bs = do
 elaborated :: Stage (MD.Metadata, Program 'Explicit)
 elaborated file bs = do
   (meta, ast) <- metadata file bs
-  ast'        <- elaborate ast
+  ast'        <- elaborate meta ast
   pure (meta, ast')
 
 noDeclaration :: Stage (MD.Metadata, AG.Program Void (HOp 'Explicit) (BOp 'Explicit 'Temporal))
