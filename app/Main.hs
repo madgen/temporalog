@@ -37,18 +37,18 @@ data Stage =
 
 stageParser :: Parser Stage
 stageParser =
-     stageFlag' TemporalLex    "lex"       "Tokenize"
- <|> stageFlag' TemporalParse  "parse"     "Parse"
- <|> stageFlag' TemporalMeta   "metadata"  "Dump metadata"
- <|> stageFlag' TemporalMeta   "elaborate" "Time elaboration"
- <|> stageFlag' TemporalNoDecl "no-decl"   "Remove declarations"
- <|> stageFlag' TemporalNoTime "no-time"   "Eliminate temporal ops"
- <|> stageFlag' TemporalType   "typecheck" "Type check"
- <|> stageFlag' Vanilla        "vanilla"   "Vanilla"
- <|> stageFlag' VanillaNormal  "normal"    "Normalise"
- <|> stageFlag' Exalog         "exalog"    "Compiled Exalog program"
- <|> stageFlag' ExalogGuard    "guard"     "Guard injection Exalog program"
- <|> stageFlag' ExalogDataflow "checked"   "Well-moded and range-restricted"
+     stageFlag' TemporalLex       "lex"       "Tokenize"
+ <|> stageFlag' TemporalParse     "parse"     "Parse"
+ <|> stageFlag' TemporalMeta      "metadata"  "Dump metadata"
+ <|> stageFlag' TemporalElaborate "elaborate" "Time elaboration"
+ <|> stageFlag' TemporalNoDecl    "no-decl"   "Remove declarations"
+ <|> stageFlag' TemporalNoTime    "no-time"   "Eliminate temporal ops"
+ <|> stageFlag' TemporalType      "typecheck" "Type check"
+ <|> stageFlag' Vanilla           "vanilla"   "Vanilla"
+ <|> stageFlag' VanillaNormal     "normal"    "Normalise"
+ <|> stageFlag' Exalog            "exalog"    "Compiled Exalog program"
+ <|> stageFlag' ExalogGuard       "guard"     "Guard injection Exalog program"
+ <|> stageFlag' ExalogDataflow    "checked"   "Well-moded and range-restricted"
 
 run :: RunOptions -> IO ()
 run RunOptions{..} = do
@@ -67,7 +67,7 @@ prettyPrint PPOptions{..} = do
     TemporalParse     -> succeedOrDie (Stage.parse file) bs $ putStrLn . pp
     TemporalMeta      -> succeedOrDie (fmap fst <$> Stage.metadata file) bs $
       putStrLn . pp
-    TemporalElaborate -> succeedOrDie (fmap fst <$> Stage.elaborated file) bs $
+    TemporalElaborate -> succeedOrDie (fmap snd <$> Stage.elaborated file) bs $
       putStrLn . pp
     TemporalNoDecl    -> succeedOrDie (fmap snd <$> Stage.noDeclaration file) bs $
       putStrLn . pp
