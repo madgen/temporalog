@@ -25,6 +25,7 @@ data Stage =
     TemporalLex
   | TemporalParse
   | TemporalMeta
+  | TemporalElaborate
   | TemporalNoDecl
   | TemporalType
   | TemporalNoTime
@@ -39,6 +40,7 @@ stageParser =
      stageFlag' TemporalLex    "lex"       "Tokenize"
  <|> stageFlag' TemporalParse  "parse"     "Parse"
  <|> stageFlag' TemporalMeta   "metadata"  "Dump metadata"
+ <|> stageFlag' TemporalMeta   "elaborate" "Time elaboration"
  <|> stageFlag' TemporalNoDecl "no-decl"   "Remove declarations"
  <|> stageFlag' TemporalNoTime "no-time"   "Eliminate temporal ops"
  <|> stageFlag' TemporalType   "typecheck" "Type check"
@@ -61,24 +63,26 @@ prettyPrint :: PPOptions Stage -> IO ()
 prettyPrint PPOptions{..} = do
   bs <- BS.fromStrict . encodeUtf8 <$> readFile file
   case stage of
-    TemporalLex      -> succeedOrDie (Stage.lex file) bs print
-    TemporalParse    -> succeedOrDie (Stage.parse file) bs $ putStrLn . pp
-    TemporalMeta     -> succeedOrDie (fmap fst <$> Stage.metadata file) bs $
+    TemporalLex       -> succeedOrDie (Stage.lex file) bs print
+    TemporalParse     -> succeedOrDie (Stage.parse file) bs $ putStrLn . pp
+    TemporalMeta      -> succeedOrDie (fmap fst <$> Stage.metadata file) bs $
       putStrLn . pp
-    TemporalNoDecl   -> succeedOrDie (fmap snd <$> Stage.noDeclaration file) bs $
+    TemporalElaborate -> succeedOrDie (fmap fst <$> Stage.elaborated file) bs $
       putStrLn . pp
-    TemporalNoTime   -> succeedOrDie (fmap snd <$> Stage.noTemporal file) bs $
+    TemporalNoDecl    -> succeedOrDie (fmap snd <$> Stage.noDeclaration file) bs $
       putStrLn . pp
-    TemporalType     -> succeedOrDie (Stage.typeChecked file) bs $ void . pure
-    Vanilla          -> succeedOrDie (fmap snd <$> Stage.vanilla file) bs $
+    TemporalNoTime    -> succeedOrDie (fmap snd <$> Stage.noTemporal file) bs $
       putStrLn . pp
-    VanillaNormal    -> succeedOrDie (fmap snd <$> Stage.normalised file) bs $
+    TemporalType      -> succeedOrDie (Stage.typeChecked file) bs $ void . pure
+    Vanilla           -> succeedOrDie (fmap snd <$> Stage.vanilla file) bs $
       putStrLn . pp
-    Exalog           -> succeedOrDie (fmap snd <$> Stage.compiled file) bs
+    VanillaNormal     -> succeedOrDie (fmap snd <$> Stage.normalised file) bs $
+      putStrLn . pp
+    Exalog            -> succeedOrDie (fmap snd <$> Stage.compiled file) bs
       printExalog
-    ExalogGuard      -> succeedOrDie (Stage.guardInjected file) bs
+    ExalogGuard       -> succeedOrDie (Stage.guardInjected file) bs
       printExalog
-    ExalogDataflow   -> succeedOrDie (Stage.dataflowSafe file) bs
+    ExalogDataflow    -> succeedOrDie (Stage.dataflowSafe file) bs
       printExalog
 
 printExalog :: (E.Program 'E.ABase, R.Solution 'E.ABase) -> IO ()
