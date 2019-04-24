@@ -15,18 +15,19 @@ import qualified Language.Vanillalog.AST as A
 import qualified Language.Vanillalog.Generic.AST as AG
 import           Language.Vanillalog.Generic.Transformation.Util (Algebra)
 
-toVanilla :: AG.Program Void (Const Void) (BOp 'ATemporal)
+toVanilla :: AG.Program Void (Const Void) (BOp eleb 'ATemporal)
           -> Log.Logger A.Program
 toVanilla AG.Program{..} =
   (\sts -> AG.Program{_statements = sts,..}) <$> traverse goSt _statements
   where
-  goSt :: AG.Statement Void (Const Void) (BOp 'ATemporal)
+  goSt :: AG.Statement Void (Const Void) (BOp eleb 'ATemporal)
        -> Log.Logger A.Statement
   goSt AG.StSentence{..} =
     (\s -> AG.StSentence{_sentence = s,..}) <$> goSent _sentence
   goSt AG.StDeclaration{..} = absurd _declaration
 
-  goSent :: AG.Sentence (Const Void) (BOp 'ATemporal) -> Log.Logger A.Sentence
+  goSent :: AG.Sentence (Const Void) (BOp eleb 'ATemporal)
+         -> Log.Logger A.Sentence
   goSent sent =
     case sent of
       AG.SFact AG.Fact{..} -> pure $ AG.SFact AG.Fact{..}
@@ -37,7 +38,7 @@ toVanilla AG.Program{..} =
         newBody <- goBody . cleanseDogru $ _body
         pure $ AG.SQuery AG.Query {_body = newBody,..}
 
-  goBody :: A.Subgoal (BOp 'ATemporal) Term
+  goBody :: A.Subgoal (BOp eleb 'ATemporal) Term
          -> Log.Logger (A.Subgoal A.Op Term)
   goBody (SAtom s atom)    = pure $ A.SAtom s atom
   goBody (SConj s phi psi) = A.SConj s <$> goBody phi <*> goBody psi
@@ -46,12 +47,12 @@ toVanilla AG.Program{..} =
   goBody (SDogru s)        =
     Log.scream (Just s) "True should have been eliminated by now."
 
-cleanseDogru :: A.Subgoal (BOp 'ATemporal) Term
-             -> A.Subgoal (BOp 'ATemporal) Term
+cleanseDogru :: A.Subgoal (BOp eleb 'ATemporal) Term
+             -> A.Subgoal (BOp eleb 'ATemporal) Term
 cleanseDogru = cata alg
   where
-  alg :: Algebra (Base (A.Subgoal (BOp 'ATemporal) Term))
-                 (A.Subgoal (BOp 'ATemporal) Term)
+  alg :: Algebra (Base (A.Subgoal (BOp eleb 'ATemporal) Term))
+                 (A.Subgoal (BOp eleb 'ATemporal) Term)
   alg (SNegF _ (SNeg _ s))                = s
   alg (SConjF span SDogru{} s)            = s
   alg (SConjF span s SDogru{})            = s

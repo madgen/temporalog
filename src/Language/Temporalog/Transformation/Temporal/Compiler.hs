@@ -26,10 +26,11 @@ import qualified Language.Temporalog.Metadata as MD
 import           Language.Temporalog.Transformation.Fresh
 
 eliminateTemporal :: MD.Metadata
-                  -> AG.Program Void HOp (BOp 'Temporal)
-                  -> Log.Logger ( MD.Metadata
-                                 , AG.Program Void (Const Void) (BOp 'ATemporal)
-                                 )
+                  -> AG.Program Void (HOp 'Explicit) (BOp 'Explicit 'Temporal)
+                  -> Log.Logger
+                      ( MD.Metadata
+                      , AG.Program Void (Const Void) (BOp 'Explicit 'ATemporal)
+                      )
 eliminateTemporal metadata program = do
   let predSyms = map #_predSym (AG.atoms program :: [ AG.AtomicFormula Term ])
   ((newProgram, newPredEnv), newClauses) <- runCompilerT (goPr program) predSyms
@@ -45,9 +46,9 @@ eliminateTemporal metadata program = do
     , newProgram {AG._statements = AG._statements newProgram <> newStatements}
     )
   where
-  goPr :: AG.Program Void HOp (BOp 'Temporal)
+  goPr :: AG.Program Void (HOp 'Explicit) (BOp 'Explicit 'Temporal)
        -> CompilerT Log.Logger
-                     ( AG.Program Void (Const Void) (BOp 'ATemporal)
+                     ( AG.Program Void (Const Void) (BOp 'Explicit 'ATemporal)
                      , PredTypeEnv
                      )
   goPr AG.Program{..} = do
@@ -56,18 +57,18 @@ eliminateTemporal metadata program = do
          , M.unions predTypeEnvs
          )
 
-  goSt :: AG.Statement Void HOp (BOp 'Temporal)
+  goSt :: AG.Statement Void (HOp 'Explicit) (BOp 'Explicit 'Temporal)
        -> CompilerT Log.Logger
-                    ( AG.Statement Void (Const Void) (BOp 'ATemporal)
+                    ( AG.Statement Void (Const Void) (BOp 'Explicit 'ATemporal)
                     , PredTypeEnv
                     )
   goSt AG.StSentence{..} =
     first (\s -> AG.StSentence{_sentence = s,..}) <$> goSent _sentence
   goSt AG.StDeclaration{..} = absurd _declaration
 
-  goSent :: AG.Sentence HOp (BOp 'Temporal)
+  goSent :: AG.Sentence (HOp 'Explicit) (BOp 'Explicit 'Temporal)
          -> CompilerT Log.Logger
-                      ( AG.Sentence (Const Void) (BOp 'ATemporal)
+                      ( AG.Sentence (Const Void) (BOp 'Explicit 'ATemporal)
                       , PredTypeEnv
                       )
   goSent sent = do
@@ -112,14 +113,15 @@ eliminateTemporal metadata program = do
     timeTerms <- traverse observeClock timings
     pure $ atom {_terms = _terms atom <> timeTerms}
 
-  goHead :: AG.Subgoal HOp Term -> ClauseM (AG.Subgoal (Const Void) Term)
+  goHead :: AG.Subgoal (HOp 'Explicit) Term
+         -> ClauseM (AG.Subgoal (Const Void) Term)
   goHead AG.SAtom{..} =
     (\atom -> AG.SAtom{_atom = atom,..}) <$> compileAtom _atom
-  goHead (SHeadJump _ child timePredSym time) =
+  goHead (SHeadJump _ child (Exp timePredSym) time) =
     setClock timePredSym time (goHead child)
 
-  goBody :: AG.Subgoal (BOp 'Temporal) Term
-         -> ClauseM (AG.Subgoal (BOp 'ATemporal) Term)
+  goBody :: AG.Subgoal (BOp 'Explicit 'Temporal) Term
+         -> ClauseM (AG.Subgoal (BOp 'Explicit 'ATemporal) Term)
   -- Predicate
   goBody AG.SAtom{..} =
     (\atom -> AG.SAtom{_atom = atom,..}) <$> compileAtom _atom
@@ -129,14 +131,14 @@ eliminateTemporal metadata program = do
   goBody (SDisj  s c1 c2) = SDisj s <$> goBody c1 <*> goBody c2
   goBody (SDogru s)       = pure (SDogru s)
   -- Hybrid operators
-  goBody (SBodyJump _ child timePredSym time) =
+  goBody (SBodyJump _ child (Exp timePredSym) time) =
     setClock timePredSym time (goBody child)
-  goBody (SBind _ timePredSym var child) = do
+  goBody (SBind _ (Exp timePredSym) var child) = do
     timeTerm <- observeClock timePredSym
     newChild <- subst var timeTerm child
     goBody newChild
   -- Temporal operators
-  goBody rho@(SEX span timePredSym phi) = do
+  goBody rho@(SEX span (Exp timePredSym) phi) = do
     -- Get an axuillary predicate and its de facto atom
     auxPredSym <- (lift . lift . lift) freshPredSym
 
@@ -171,7 +173,7 @@ eliminateTemporal metadata program = do
       (SConj span transitionAtom phi')
 
     pure auxHead
-  goBody rho@(SEU span timePredSym phi psi) = do
+  goBody rho@(SEU span (Exp timePredSym) phi psi) = do
     -- Get an axuillary predicate and its de facto atom
     auxPredSym <- (lift . lift . lift) freshPredSym
 
@@ -213,7 +215,7 @@ eliminateTemporal metadata program = do
     let auxResult = SAtom span (auxAtom {_terms = deltaFV <> delta })
 
     pure auxResult
-  goBody rho@(SEG span timePredSym phi) = do
+  goBody rho@(SEG span (Exp timePredSym) phi) = do
     [ aux1PredSym, aux2PredSym ]  <-
       replicateM 2 $ (lift . lift . lift) freshPredSym
 
@@ -295,7 +297,7 @@ eliminateTemporal metadata program = do
 
     pure auxResult
 
-genTimeGuard :: TimeEnv -> AG.Subgoal (BOp 'ATemporal) Term
+genTimeGuard :: TimeEnv -> AG.Subgoal (BOp 'Explicit 'ATemporal) Term
 genTimeGuard = M.foldr' (SConj dummySpan) (SDogru dummySpan)
              . M.mapWithKey toGuard
   where
@@ -304,7 +306,7 @@ genTimeGuard = M.foldr' (SConj dummySpan) (SDogru dummySpan)
 accessibilityAtom :: PredicateSymbol
                   -> Term
                   -> Term
-                  -> AG.Subgoal (BOp 'ATemporal) Term
+                  -> AG.Subgoal (BOp 'Explicit 'ATemporal) Term
 accessibilityAtom predSym now next =
   SAtom dummySpan (AtomicFormula { _span = dummySpan
                                  , _predSym = predSym
@@ -313,8 +315,8 @@ accessibilityAtom predSym now next =
 
 subst :: Var
       -> Term
-      -> Subgoal (BOp a) Term
-      -> ClauseM (Subgoal (BOp a) Term)
+      -> Subgoal (BOp 'Explicit a) Term
+      -> ClauseM (Subgoal (BOp 'Explicit a) Term)
 subst var term sub =
   case sub of
     AG.SAtom{..} -> pure
@@ -351,12 +353,13 @@ substParams var term = map (\case
 -- Necessary effects
 --------------------------------------------------------------------------------
 
-type CompilerT m = FreshT (StateT [ AG.Clause (Const Void) (BOp 'ATemporal) ] m)
+type CompilerT m =
+  FreshT (StateT [ AG.Clause (Const Void) (BOp Explicit 'ATemporal) ] m)
 
 runCompilerT :: Monad m
               => CompilerT m a
               -> [ PredicateSymbol ]
-              -> m (a, [ AG.Clause (Const Void) (BOp 'ATemporal) ])
+              -> m (a, [ AG.Clause (Const Void) (BOp 'Explicit 'ATemporal) ])
 runCompilerT action predSyms =
   runStateT (runFreshPredSymT predSyms action) []
 
@@ -365,7 +368,7 @@ runFreshPredSymT predSyms =
   runFreshT (Just "aux") ((\(PredicateSymbol text) -> text) <$> predSyms)
 
 addClause :: Monad m
-          => AG.Clause (Const Void) (BOp 'ATemporal) -> CompilerT m ()
+          => AG.Clause (Const Void) (BOp 'Explicit 'ATemporal) -> CompilerT m ()
 addClause clause = lift $ modify (clause :)
 
 freshPredSym :: Monad m => CompilerT m PredicateSymbol
@@ -418,7 +421,7 @@ uniqTimePredsM metadata phi = nub . sort <$> timePreds metadata phi
 class HasTimePredicates a where
   timePreds :: MD.Metadata -> a -> Log.Logger [ PredicateSymbol ]
 
-instance HasTimePredicates Sentence where
+instance HasTimePredicates (Sentence 'Explicit) where
   timePreds metadata sent =
     case sent of
       AG.SClause AG.Clause{..} -> (<>)
@@ -427,37 +430,36 @@ instance HasTimePredicates Sentence where
       AG.SQuery  AG.Query{..}  -> timePreds metadata _body
       AG.SFact   AG.Fact{..}   -> timePreds metadata _head
 
-instance HasTimePredicates (Subgoal HOp Term) where
+instance HasTimePredicates (Subgoal (HOp 'Explicit) Term) where
   timePreds metadata rho =
     case rho of
-      AG.SAtom{..}               -> timePreds metadata _atom
-      SHeadJump _ phi timePred _ -> filter (/= timePred)
-                                <$> timePreds metadata phi
+      AG.SAtom{..}                     -> timePreds metadata _atom
+      SHeadJump _ phi (Exp timePred) _ ->
+        filter (/= timePred) <$> timePreds metadata phi
 
-instance HasTimePredicates (Subgoal (BOp 'Temporal) Term) where
-  timePreds metadata rho =
-    case rho of
-      AG.SAtom{..}               -> timePreds metadata _atom
-      SBodyJump _ phi timePred _ -> filter (/= timePred)
-                                <$> timePreds metadata phi
-      SBind _ timePred _ phi     -> (timePred :) <$> timePreds metadata phi
-      SEX _ timePred phi         -> (timePred :) <$> timePreds metadata phi
-      SAX _ timePred phi         -> (timePred :) <$> timePreds metadata phi
-      SEF _ timePred phi         -> (timePred :) <$> timePreds metadata phi
-      SAF _ timePred phi         -> (timePred :) <$> timePreds metadata phi
-      SEG _ timePred phi         -> (timePred :) <$> timePreds metadata phi
-      SAG _ timePred phi         -> (timePred :) <$> timePreds metadata phi
-      SEU _ timePred phi psi     -> (\xs ys -> timePred : xs <> ys)
-                                <$> timePreds metadata phi
-                                <*> timePreds metadata psi
-      SAU _ timePred phi psi     -> (\xs ys -> timePred : xs <> ys)
-                                <$> timePreds metadata phi
-                                <*> timePreds metadata psi
-      AG.SNullOp{}               -> pure []
-      AG.SUnOp{..}               -> timePreds metadata _child
-      AG.SBinOp{..}              -> (<>)
-                                <$> timePreds metadata _child1
-                                <*> timePreds metadata _child2
+instance HasTimePredicates (Subgoal (BOp 'Explicit 'Temporal) Term) where
+  timePreds metadata rho = case rho of
+    AG.SAtom{..}                     -> timePreds metadata _atom
+    SBodyJump _ phi (Exp timePred) _ -> filter (/= timePred)
+                                    <$> timePreds metadata phi
+    SBind _ (Exp timePred) _ phi     -> (timePred :) <$> timePreds metadata phi
+    SEX _ (Exp timePred) phi         -> (timePred :) <$> timePreds metadata phi
+    SAX _ (Exp timePred) phi         -> (timePred :) <$> timePreds metadata phi
+    SEF _ (Exp timePred) phi         -> (timePred :) <$> timePreds metadata phi
+    SAF _ (Exp timePred) phi         -> (timePred :) <$> timePreds metadata phi
+    SEG _ (Exp timePred) phi         -> (timePred :) <$> timePreds metadata phi
+    SAG _ (Exp timePred) phi         -> (timePred :) <$> timePreds metadata phi
+    SEU _ (Exp timePred) phi psi     -> (\xs ys -> timePred : xs <> ys)
+                                    <$> timePreds metadata phi
+                                    <*> timePreds metadata psi
+    SAU _ (Exp timePred) phi psi     -> (\xs ys -> timePred : xs <> ys)
+                                    <$> timePreds metadata phi
+                                    <*> timePreds metadata psi
+    AG.SNullOp{}                     -> pure []
+    AG.SUnOp{..}                     -> timePreds metadata _child
+    AG.SBinOp{..}                    -> (<>)
+                                    <$> timePreds metadata _child1
+                                    <*> timePreds metadata _child2
 
 instance HasTimePredicates (AtomicFormula Term) where
   timePreds metadata AtomicFormula{..} =

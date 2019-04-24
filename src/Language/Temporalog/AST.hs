@@ -27,7 +27,9 @@ module Language.Temporalog.AST
   , pattern SEXF, pattern SEFF, pattern SEGF, pattern SEUF
   , pattern SAXF, pattern SAFF, pattern SAGF, pattern SAUF
   , pattern SHeadJumpF, pattern SBodyJumpF, pattern SBindF
-  , HOp(..), BOp(..), Temporal(..), AG.OpKind(..), AG.SomeOp(..)
+  , TimeSym(..)
+  , HOp(..), BOp(..), ElaborationStatus(..), Temporal(..) , AG.OpKind(..)
+  , AG.SomeOp(..)
   , AG.AtomicFormula(..)
   , PredicateSymbol(..)
   , AG.Term(..)
@@ -56,17 +58,17 @@ import           Language.Vanillalog.Generic.Pretty ( Pretty(..)
                                                     , HasPrecedence(..)
                                                     )
 
-type Program = AG.Program Declaration HOp (BOp 'Temporal)
+type Program eleb = AG.Program Declaration (HOp eleb) (BOp eleb 'Temporal)
 
-type Statement = AG.Statement Declaration HOp (BOp 'Temporal)
+type Statement eleb = AG.Statement Declaration (HOp eleb) (BOp eleb 'Temporal)
 
-type Sentence = AG.Sentence HOp (BOp 'Temporal)
+type Sentence eleb = AG.Sentence (HOp eleb) (BOp eleb 'Temporal)
 
-type Query = AG.Query HOp (BOp 'Temporal)
+type Query eleb = AG.Query (HOp eleb) (BOp eleb 'Temporal)
 
-type Clause = AG.Clause HOp (BOp 'Temporal)
+type Clause eleb = AG.Clause (HOp eleb) (BOp eleb 'Temporal)
 
-type Fact = AG.Fact HOp
+type Fact eleb = AG.Fact (HOp eleb)
 
 type Subgoal = AG.Subgoal
 
@@ -76,34 +78,43 @@ data Declaration = Declaration
   , _timePredSyms :: Maybe [ PredicateSymbol ]
   }
 
+data ElaborationStatus = Explicit | Implicit
+
+data TimeSym :: ElaborationStatus -> Type where
+  Imp ::                    TimeSym Implicit
+  Exp :: PredicateSymbol -> TimeSym eleb
+
+deriving instance Eq (TimeSym eleb)
+deriving instance Ord (TimeSym eleb)
+
 data Temporal = Temporal | ATemporal
 
-data BOp :: Temporal -> AG.OpKind -> Type where
-  Negation      ::                               BOp a    'AG.Unary
-  Conjunction   ::                               BOp a    'AG.Binary
-  Disjunction   ::                               BOp a    'AG.Binary
+data BOp :: ElaborationStatus -> Temporal -> AG.OpKind -> Type where
+  Negation      ::                            BOp eleb temp      'AG.Unary
+  Conjunction   ::                            BOp eleb temp      'AG.Binary
+  Disjunction   ::                            BOp eleb temp      'AG.Binary
 
-  Dogru         ::                               BOp a    'AG.Nullary
+  Dogru         ::                            BOp eleb temp      'AG.Nullary
 
-  AX            :: PredicateSymbol ->            BOp 'Temporal 'AG.Unary
-  EX            :: PredicateSymbol ->            BOp 'Temporal 'AG.Unary
-  AG            :: PredicateSymbol ->            BOp 'Temporal 'AG.Unary
-  EG            :: PredicateSymbol ->            BOp 'Temporal 'AG.Unary
-  AF            :: PredicateSymbol ->            BOp 'Temporal 'AG.Unary
-  EF            :: PredicateSymbol ->            BOp 'Temporal 'AG.Unary
-  AU            :: PredicateSymbol ->            BOp 'Temporal 'AG.Binary
-  EU            :: PredicateSymbol ->            BOp 'Temporal 'AG.Binary
-  Bind          :: PredicateSymbol -> AG.Var  -> BOp 'Temporal 'AG.Unary
-  BodyJump      :: PredicateSymbol -> AG.Term -> BOp 'Temporal 'AG.Unary
+  AX            :: TimeSym eleb ->            BOp eleb 'Temporal 'AG.Unary
+  EX            :: TimeSym eleb ->            BOp eleb 'Temporal 'AG.Unary
+  AG            :: TimeSym eleb ->            BOp eleb 'Temporal 'AG.Unary
+  EG            :: TimeSym eleb ->            BOp eleb 'Temporal 'AG.Unary
+  AF            :: TimeSym eleb ->            BOp eleb 'Temporal 'AG.Unary
+  EF            :: TimeSym eleb ->            BOp eleb 'Temporal 'AG.Unary
+  AU            :: TimeSym eleb ->            BOp eleb 'Temporal 'AG.Binary
+  EU            :: TimeSym eleb ->            BOp eleb 'Temporal 'AG.Binary
+  Bind          :: TimeSym eleb -> AG.Var  -> BOp eleb 'Temporal 'AG.Unary
+  BodyJump      :: TimeSym eleb -> AG.Term -> BOp eleb 'Temporal 'AG.Unary
 
-data HOp :: AG.OpKind -> Type where
-  HeadJump      :: PredicateSymbol -> AG.Term -> HOp 'AG.Unary
+data HOp :: ElaborationStatus -> AG.OpKind -> Type where
+  HeadJump      :: TimeSym eleb -> AG.Term -> HOp eleb 'AG.Unary
 
-deriving instance Ord (HOp opKind)
-deriving instance Ord (BOp a opKind)
+deriving instance Ord (HOp eleb opKind)
+deriving instance Ord (BOp eleb temp opKind)
 
-deriving instance Eq (HOp opKind)
-deriving instance Eq (BOp a opKind)
+deriving instance Eq (HOp eleb opKind)
+deriving instance Eq (BOp eleb temp opKind)
 
 pattern SAtom span atom      = AG.SAtom span atom
 pattern SNeg  span sub       = AG.SUnOp span Negation sub
@@ -152,25 +163,25 @@ pattern SBodyJumpF span child timePredSym time = AG.SUnOpF span (BodyJump timePr
 class AG.HasVariables a => HasFreeVariables a where
   freeVars :: a -> [ AG.Var ]
 
-instance HasFreeVariables Sentence where
+instance HasFreeVariables (Sentence eleb) where
   freeVars AG.SFact{..}   = freeVars _fact
   freeVars AG.SClause{..} = freeVars _clause
   freeVars AG.SQuery{..}  = freeVars _query
 
-instance HasFreeVariables Clause where
+instance HasFreeVariables (Clause eleb) where
   freeVars AG.Clause{..} = freeVars _head ++ freeVars _body
 
-instance HasFreeVariables Query where
+instance HasFreeVariables (Query eleb) where
   freeVars AG.Query{..} = freeVars _body
 
-instance HasFreeVariables Fact where
+instance HasFreeVariables (Fact eleb) where
   freeVars AG.Fact{..} = freeVars _head
 
 instance HasFreeVariables (AG.AtomicFormula t)
-    => HasFreeVariables (AG.Subgoal HOp t) where
+    => HasFreeVariables (AG.Subgoal (HOp eleb) t) where
   freeVars = cata varAlg
     where
-    varAlg :: Base (AG.Subgoal HOp t) [ AG.Var ] -> [ AG.Var ]
+    varAlg :: Base (AG.Subgoal (HOp eleb) t) [ AG.Var ] -> [ AG.Var ]
     varAlg (SHeadJumpF _ vars _ term)   =
       case term of { AG.TVar v -> v : vars; _ -> vars }
     varAlg (AG.SAtomF _ atom)              = freeVars atom
@@ -179,14 +190,14 @@ instance HasFreeVariables (AG.AtomicFormula t)
     varAlg (AG.SBinOpF _ _ vars1 vars2) = vars1 ++ vars2
 
 instance HasFreeVariables (AG.AtomicFormula t)
-    => HasFreeVariables (AG.Subgoal (BOp a) t) where
+    => HasFreeVariables (AG.Subgoal (BOp eleb temp) t) where
   freeVars = cata varAlg
     where
-    varAlg :: Base (AG.Subgoal (BOp a) t) [ AG.Var ] -> [ AG.Var ]
+    varAlg :: Base (AG.Subgoal (BOp eleb temp) t) [ AG.Var ] -> [ AG.Var ]
     varAlg (SBodyJumpF _ vars _ term)   =
       case term of { AG.TVar v -> v : vars; _ -> vars }
     varAlg (SBindF _ _ var vars)        = filter (var /=) vars
-    varAlg (AG.SAtomF _ atom)              = freeVars atom
+    varAlg (AG.SAtomF _ atom)           = freeVars atom
     varAlg (AG.SNullOpF _ _)            = []
     varAlg (AG.SUnOpF _ _ vars)         = vars
     varAlg (AG.SBinOpF _ _ vars1 vars2) = vars1 ++ vars2
@@ -204,7 +215,7 @@ instance HasFreeVariables (AG.AtomicFormula AG.Sym) where
 -- Pretty printing related instances
 -------------------------------------------------------------------------------
 
-instance HasPrecedence (BOp a) where
+instance HasPrecedence (BOp eleb temp) where
   precedence AG.NoOp                 = 0
   precedence (AG.SomeOp Dogru)       = 0
   precedence (AG.SomeOp Negation)    = 1
@@ -221,28 +232,32 @@ instance HasPrecedence (BOp a) where
   precedence (AG.SomeOp Bind{})      = 5
   precedence (AG.SomeOp BodyJump{})  = 6
 
-instance HasPrecedence HOp where
+instance HasPrecedence (HOp eleb) where
   precedence AG.NoOp                = 0
   precedence (AG.SomeOp HeadJump{}) = 1
 
-instance Pretty (BOp a opKind) where
-  pretty Dogru                       = "TRUE"
-  pretty Negation                    = "!"
-  pretty Conjunction                 = ", "
-  pretty Disjunction                 = "; "
-  pretty (EX timePredSym)            = "EX" <+> pretty timePredSym <> " "
-  pretty (EF timePredSym)            = "EF" <+> pretty timePredSym <> " "
-  pretty (EG timePredSym)            = "EG" <+> pretty timePredSym <> " "
-  pretty (EU timePredSym)            = " EU" <+> pretty timePredSym <> " "
-  pretty (AX timePredSym)            = "AX" <+> pretty timePredSym <> " "
-  pretty (AF timePredSym)            = "AF" <+> pretty timePredSym <> " "
-  pretty (AG timePredSym)            = "AG" <+> pretty timePredSym <> " "
-  pretty (AU timePredSym)            = " AU" <+> pretty timePredSym <> " "
-  pretty (Bind timePredSym var)      = pretty timePredSym <+> pretty var  <+> "| "
-  pretty (BodyJump timePredSym time) = pretty timePredSym <+> pretty time <+> "@ "
+instance Pretty (TimeSym eleb) where
+  pretty (Exp predSym) = pretty predSym
+  pretty Imp           = empty
 
-instance Pretty (HOp opKind) where
-  pretty (HeadJump timePredSym time) = pretty timePredSym <+> pretty time <+> "@ "
+instance Pretty (BOp eleb temp opKind) where
+  pretty Dogru                   = "TRUE"
+  pretty Negation                = "!"
+  pretty Conjunction             = ", "
+  pretty Disjunction             = "; "
+  pretty (EX timeSym)            = "EX"  <+> pretty timeSym <> " "
+  pretty (EF timeSym)            = "EF"  <+> pretty timeSym <> " "
+  pretty (EG timeSym)            = "EG"  <+> pretty timeSym <> " "
+  pretty (EU timeSym)            = " EU" <+> pretty timeSym <> " "
+  pretty (AX timeSym)            = "AX"  <+> pretty timeSym <> " "
+  pretty (AF timeSym)            = "AF"  <+> pretty timeSym <> " "
+  pretty (AG timeSym)            = "AG"  <+> pretty timeSym <> " "
+  pretty (AU timeSym)            = " AU" <+> pretty timeSym <> " "
+  pretty (Bind timeSym var)      = pretty timeSym <+> pretty var  <+> "| "
+  pretty (BodyJump timeSym time) = pretty timeSym <+> pretty time <+> "@ "
+
+instance Pretty (HOp eleb opKind) where
+  pretty (HeadJump timeSym time) = pretty timeSym <+> pretty time <+> "@ "
 
 instance Pretty Declaration where
   pretty (Declaration _ atom mTimes) =

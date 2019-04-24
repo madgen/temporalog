@@ -38,8 +38,9 @@ import qualified Language.Temporalog.Parser.Lexer as Lexer
 import qualified Language.Temporalog.Parser.Parser as Parser
 import           Language.Temporalog.Transformation.Declaration (removeDecls)
 import           Language.Temporalog.Transformation.GuardInjection (injectGuards)
-import           Language.Temporalog.Transformation.Temporal.Identities (applyTemporalIdentities)
 import           Language.Temporalog.Transformation.Temporal.Compiler (eliminateTemporal)
+import           Language.Temporalog.Transformation.Temporal.Elaborator (elaborate)
+import           Language.Temporalog.Transformation.Temporal.Identities (applyTemporalIdentities)
 import           Language.Temporalog.Transformation.Temporal.Vanilla (toVanilla)
 import           Language.Temporalog.TypeChecker (typeCheck)
 
@@ -48,19 +49,25 @@ type Stage a = FilePath -> BS.ByteString -> Log.Logger a
 lex :: Stage [ L.Lexeme (Lexer.Token Text) ]
 lex = Lexer.lex
 
-parse :: Stage Program
+parse :: Stage (Program 'Implicit)
 parse = Parser.programParser
 
-metadata :: Stage (MD.Metadata, Program)
+metadata :: Stage (MD.Metadata, Program 'Implicit)
 metadata file bs = do
   ast <- parse file bs
   meta <- MD.processMetadata ast
   pure (meta, ast)
 
-noDeclaration :: Stage (MD.Metadata, AG.Program Void HOp (BOp 'Temporal))
-noDeclaration file bs = second removeDecls <$> metadata file bs
+elaborated :: Stage (MD.Metadata, Program 'Explicit)
+elaborated file bs = do
+  (meta, ast) <- metadata file bs
+  ast'        <- elaborate ast
+  pure (meta, ast')
 
-noTemporal :: Stage (MD.Metadata, AG.Program Void (Const Void) (BOp 'ATemporal))
+noDeclaration :: Stage (MD.Metadata, AG.Program Void (HOp 'Explicit) (BOp 'Explicit 'Temporal))
+noDeclaration file bs = second removeDecls <$> elaborated file bs
+
+noTemporal :: Stage (MD.Metadata, AG.Program Void (Const Void) (BOp 'Explicit 'ATemporal))
 noTemporal file bs = do
   (meta, ast) <- noDeclaration file bs
   eliminateTemporal meta (applyTemporalIdentities ast)

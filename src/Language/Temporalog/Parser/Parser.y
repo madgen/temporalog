@@ -29,6 +29,8 @@ import Language.Temporalog.Parser.Lexer (Token(..), lex)
   ")"      { L.Lexeme{L._token = TRightPar} }
   "["      { L.Lexeme{L._token = TLeftBracket} }
   "]"      { L.Lexeme{L._token = TRightBracket} }
+  "<"      { L.Lexeme{L._token = TLeftAngle} }
+  ">"      { L.Lexeme{L._token = TRightAngle} }
   "."      { L.Lexeme{L._token = TDot} }
   ","      { L.Lexeme{L._token = TComma} }
   ":-"     { L.Lexeme{L._token = TRule} }
@@ -72,10 +74,10 @@ import Language.Temporalog.Parser.Lexer (Token(..), lex)
 
 %%
 
-PROGRAM :: { Program }
+PROGRAM :: { Program 'Implicit }
 : CLAUSES eof { G.Program (span $1) . reverse $ $1 }
 
-CLAUSES :: { [ Statement ] }
+CLAUSES :: { [ Statement 'Implicit ] }
 : CLAUSES DECLARATION { G.StDeclaration $2 : $1 }
 | CLAUSES CLAUSE      { G.StSentence    $2 : $1 }
 |                     { [] }
@@ -84,31 +86,35 @@ DECLARATION :: { Declaration }
 : decl ATOM_TYPE "."             { Declaration (span ($1,$3)) $2 Nothing }
 | decl ATOM_TYPE "@" FX_SYMS "." { Declaration (span ($1,$5)) $2 (Just $ map snd . reverse $ $4) }
 
-CLAUSE :: { Sentence }
+CLAUSE :: { Sentence 'Implicit }
 : HEAD ":-" SUBGOAL "." { G.SClause $ G.Clause (span ($1,$4)) $1 $3 }
 | HEAD "."              { G.SFact   $ G.Fact   (span ($1,$2)) $1 }
 | "?-" SUBGOAL "."      { G.SQuery  $ G.Query  (span ($1,$3)) Nothing $2 }
 
-HEAD :: { Subgoal HOp Term }
-: ATOMIC_FORMULA        { SAtom     (span $1)      $1 }
-| HEAD "@" FX_SYM TERM  { SHeadJump (span ($1,$4)) $1 (snd $3) $4 }
+HEAD :: { Subgoal (HOp 'Implicit) Term }
+: ATOMIC_FORMULA         { SAtom     (span $1)      $1 }
+| HEAD "@" TIME_SYM TERM { SHeadJump (span ($1,$4)) $1 $3 $4 }
 
-SUBGOAL :: { Subgoal (BOp 'Temporal) Term }
-: ATOMIC_FORMULA                      { SAtom (span $1) $1 }
-| neg SUBGOAL                         { SNeg (span ($1,$2)) $2 }
-| "(" SUBGOAL ")"                     { $2 }
-| SUBGOAL conj SUBGOAL                { SConj (span ($1,$3)) $1 $3 }
-| SUBGOAL disj SUBGOAL                { SDisj (span ($1,$3)) $1 $3 }
-| ex FX_SYM SUBGOAL                   { SEX (span ($1,$3)) (snd $2) $3 }
-| ef FX_SYM SUBGOAL                   { SEF (span ($1,$3)) (snd $2) $3 }
-| eg FX_SYM SUBGOAL                   { SEG (span ($1,$3)) (snd $2) $3 }
-| e  FX_SYM "[" SUBGOAL u SUBGOAL "]" { SEU (span ($1,$7)) (snd $2) $4 $6 }
-| ax FX_SYM SUBGOAL                   { SAX (span ($1,$3)) (snd $2) $3 }
-| af FX_SYM SUBGOAL                   { SAF (span ($1,$3)) (snd $2) $3 }
-| ag FX_SYM SUBGOAL                   { SAG (span ($1,$3)) (snd $2) $3 }
-| a  FX_SYM "[" SUBGOAL u SUBGOAL "]" { SAU (span ($1,$7)) (snd $2) $4 $6 }
-| SUBGOAL "@" FX_SYM TERM             { SBodyJump (span ($1,$4)) $1 (snd $3) $4 }
-| "|" FX_SYM VAR SUBGOAL              { SBind     (span ($1,$4)) (snd $2) $3 $4 }
+SUBGOAL :: { Subgoal (BOp 'Implicit 'Temporal) Term }
+: ATOMIC_FORMULA                        { SAtom (span $1) $1 }
+| neg SUBGOAL                           { SNeg (span ($1,$2)) $2 }
+| "(" SUBGOAL ")"                       { $2 }
+| SUBGOAL conj SUBGOAL                  { SConj (span ($1,$3)) $1 $3 }
+| SUBGOAL disj SUBGOAL                  { SDisj (span ($1,$3)) $1 $3 }
+| ex TIME_SYM SUBGOAL                   { SEX (span ($1,$3)) $2 $3 }
+| ef TIME_SYM SUBGOAL                   { SEF (span ($1,$3)) $2 $3 }
+| eg TIME_SYM SUBGOAL                   { SEG (span ($1,$3)) $2 $3 }
+| e  TIME_SYM "[" SUBGOAL u SUBGOAL "]" { SEU (span ($1,$7)) $2 $4 $6 }
+| ax TIME_SYM SUBGOAL                   { SAX (span ($1,$3)) $2 $3 }
+| af TIME_SYM SUBGOAL                   { SAF (span ($1,$3)) $2 $3 }
+| ag TIME_SYM SUBGOAL                   { SAG (span ($1,$3)) $2 $3 }
+| a  TIME_SYM "[" SUBGOAL u SUBGOAL "]" { SAU (span ($1,$7)) $2 $4 $6 }
+| SUBGOAL "@" TIME_SYM TERM             { SBodyJump (span ($1,$4)) $1 $3 $4 }
+| "|" TIME_SYM VAR SUBGOAL              { SBind     (span ($1,$4)) $2 $3 $4 }
+
+TIME_SYM :: { TimeSym Implicit }
+: "<" FX_SYM ">" { Exp (snd $2) }
+|                { Imp }
 
 ATOMIC_FORMULA :: { AtomicFormula Term }
 : FX_SYM "(" TERMS ")" { AtomicFormula (transSpan (fst $1) (span $4)) (snd $1) (reverse $3) }

@@ -65,7 +65,9 @@ token :-
 <scB> "A"        { enterStartCodeAnd scSP $ basic TA }
 <scB> "U"        { basic TU }
 
-<scSP> @fxSym    { exitStartCodeAnd $ useInput TFxSym }
+<scSP> "<"       { basic TLeftAngle }
+<scSP> @fxSym    { useInput TFxSym }
+<scSP> ">"       { exitStartCodeAnd $ basic TRightAngle }
 
 <scB>     ":-"     { basic TRule }
 <scA>     ":-"     { exitStartCodeAnd $ basic TRule }
@@ -113,6 +115,8 @@ data Token str =
   | TRightPar
   | TLeftBracket
   | TRightBracket
+  | TLeftAngle
+  | TRightAngle
   | TDot
   | TComma
   | TRule

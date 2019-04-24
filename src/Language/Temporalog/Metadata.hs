@@ -79,7 +79,7 @@ addAuxillaryAtemporalPred predSym predType =
     }
 
 -- |Extract metadata from declarations
-processMetadata :: Program -> Log.Logger Metadata
+processMetadata :: Program eleb -> Log.Logger Metadata
 processMetadata program = do
   let (decls, sentences) =
           bimap (AG._declaration <$>) (AG._sentence <$>)
@@ -163,7 +163,7 @@ uniquenessCheck decls = do
 
 -- |Check all predicates appearing in declarations have corresponding clauses
 -- defining them.
-sentenceExistenceCheck :: [ Sentence ] -> [ Declaration ] -> Log.Logger ()
+sentenceExistenceCheck :: [ Sentence eleb ] -> [ Declaration ] -> Log.Logger ()
 sentenceExistenceCheck sentences decls = forM_ decls $ \Declaration{..} -> do
   let declaredPredSym = #_predSym _atomType
   checkExistence _span declaredPredSym
@@ -179,12 +179,14 @@ sentenceExistenceCheck sentences decls = forM_ decls $ \Declaration{..} -> do
     AG.SFact{_fact     = AG.Fact{_head   = sub}} -> Just $ name sub
     AG.SClause{_clause = AG.Clause{_head = sub}} -> Just $ name sub
 
-name :: Subgoal HOp term -> PredicateSymbol
+name :: Subgoal (HOp eleb) term -> PredicateSymbol
 name AG.SAtom{..}          = #_predSym _atom
 name (SHeadJump _ sub _ _) = name sub
 
 -- |Check all predicates defined have corresponding declarations.
-declarationExistenceCheck :: [ Sentence ] -> [ Declaration ] -> Log.Logger ()
+declarationExistenceCheck :: [ Sentence eleb ]
+                          -> [ Declaration ]
+                          -> Log.Logger ()
 declarationExistenceCheck sentences decls = forM_ sentences $ \case
   AG.SQuery{} -> pure ()
   AG.SFact{AG._fact     = AG.Fact{_head   = sub,..}} ->
