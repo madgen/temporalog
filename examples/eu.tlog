@@ -11,14 +11,14 @@ v'(T,T') :- v(T,T').
 v'(T',T')  :- v(T,T'), ! v(T',_).
 
 .decl q(int) @ v'.
-q(1000) @ v' 1.
-q(1000) @ v' 2.
-q(1000) @ v' 3.
-q(1000) @ v' 4.
-q(1000) @ v' 5.
-q(1000) @ v' 6.
+q(1000) @ 1.
+q(1000) @ 2.
+q(1000) @ 3.
+q(1000) @ 4.
+q(1000) @ 5.
+q(1000) @ 6.
 
-q(2000) @ v' 6.
+q(2000) @ 6.
 
 .decl pure1(text).
 pure1("x").
@@ -30,6 +30,6 @@ pure2("a").
 pure2("b").
 pure2("c").
 
-?- E v' [ q(1000) U q(2000) ].   % True at 1,2,3,5,6
-?- E v' [ q(1000) U ! q(2000) ]. % True at 1,2,3,4,5,7
-?- E v' [ pure1(X) U pure2(X) ]. % True for all of abc everywhere
+?- E [ q(1000) U q(2000) ].   % True at 1,2,3,5,6
+?- E [ q(1000) U ! q(2000) ]. % True at 1,2,3,4,5,7
+?- E [ pure1(X) U pure2(X) ]. % True for all of abc everywhere

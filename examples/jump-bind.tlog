@@ -8,37 +8,37 @@ v'(T,T') :- v(T,T').
 v'(T',T')  :- v(T,T'), ! v(T',_).
 
 .decl q() @ v'.
-q() @ v' 1.
-q() @ v' 2.
-q() @ v' 3.
+q() @ 1.
+q() @ 2.
+q() @ 3.
 
 .decl p() @ v'.
-p() @ v' 2.
-p() @ v' 4.
+p() @ 2.
+p() @ 4.
 
-?- | v' X (p() @ v' X). % Same as p, so true at 2, 4
-?- p() @ v' 2 @ v' 1.   % Same as "is p true at 2 at 1", so yes
-?- p() @ v' 1 @ v' 2.   % Same as "is p true at 1 at 2", so no
+?- | X (p() @ X). % Same as p, so true at 2, 4
+?- p() @ 2 @ 1.   % Same as "is p true at 2 at 1", so yes
+?- p() @ 1 @ 2.   % Same as "is p true at 1 at 2", so no
 
 % Is there an existentially quantified X where p holds? Yes at X = 2; 4
-?- p() @ v' X.
+?- p() @ X.
 
 % Is there a binder quantified X where p holds? Yes at X = 2; 4
-?- | v' X p() @ v' X.
+?- | X p() @ X.
 
 % Is there an X at which either p and q hold? Yes, everywhere
-?- (p() @ v' X); (q() @ v' X).
+?- (p() @ X); (q() @ X).
 
 % Is there an X at which both p and q hold? Yes, ay X = 2
-?- (p() @ v' X), (q() @ v' X).
+?- (p() @ X), (q() @ X).
 
 % Everywhere p holds, X = 2; 4
-?- v'(X,Y), (p() @ v' X).
+?- v'(X,Y), (p() @ X).
 
 .decl is1(int).
 is1(1).
 
 % Shadowing behaviour
-?- | v' X (is1(X), p()). % Doesn't hold
+?- | X (is1(X), p()). % Doesn't hold
 % Holds at 2 despite outer X being set to 1.
-?- | v' X (is1(X), (| v' X p() @ v' 2)).
+?- | X (is1(X), (| X p() @ 2)).
