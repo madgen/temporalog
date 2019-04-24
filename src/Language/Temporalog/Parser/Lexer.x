@@ -55,19 +55,20 @@ token :-
 <scB> "["        { basic TLeftBracket }
 <scB> "]"        { basic TRightBracket }
 <scB> "!"        { basic TNeg }
-<scB> "EX"       { enterStartCodeAnd scSP $ basic TEX }
-<scB> "EF"       { enterStartCodeAnd scSP $ basic TEF }
-<scB> "EG"       { enterStartCodeAnd scSP $ basic TEG }
-<scB> "E"        { enterStartCodeAnd scSP $ basic TE }
-<scB> "AX"       { enterStartCodeAnd scSP $ basic TAX }
-<scB> "AF"       { enterStartCodeAnd scSP $ basic TAF }
-<scB> "AG"       { enterStartCodeAnd scSP $ basic TAG }
-<scB> "A"        { enterStartCodeAnd scSP $ basic TA }
+<scB> "EX"       { basic TEX }
+<scB> "EF"       { basic TEF }
+<scB> "EG"       { basic TEG }
+<scB> "E"        { basic TE }
+<scB> "AX"       { basic TAX }
+<scB> "AF"       { basic TAF }
+<scB> "AG"       { basic TAG }
+<scB> "A"        { basic TA }
 <scB> "U"        { basic TU }
 
-<scSP> "<"       { basic TLeftAngle }
-<scSP> @fxSym    { useInput TFxSym }
-<scSP> ">"       { exitStartCodeAnd $ basic TRightAngle }
+-- When time is explicit
+<scB> "<"         { enterStartCodeAnd scSP $ basic TLeftAngle }
+<scSP> @fxSym     { useInput TFxSym }
+<scSP> ">"        { exitStartCodeAnd $ basic TRightAngle }
 
 <scB>     ":-"     { basic TRule }
 <scA>     ":-"     { exitStartCodeAnd $ basic TRule }
@@ -94,10 +95,10 @@ token :-
 <scD>  "@"    { enterStartCodeAnd scDT $ basic TJump }
 <scDT> @fxSym { exitStartCodeAnd $ useInput TFxSym }
 
-<scB> "|"     { enterStartCodeAnd scBB $ enterStartCodeAnd scSP $ basic TBind }
+<scB> "|"     { enterStartCodeAnd scBB $ basic TBind }
 <scBB> @var   { exitStartCodeAnd $ useInput TVariable }
 
-<scB> "@"     { enterStartCodeAnd scBJ $ enterStartCodeAnd scSP $ basic TJump }
+<scB> "@"     { enterStartCodeAnd scBJ $ basic TJump }
 <scBJ> true   { exitStartCodeAnd $ basic (TBool True) }
 <scBJ> false  { exitStartCodeAnd $ basic (TBool False) }
 <scBJ> @var   { exitStartCodeAnd $ useInput TVariable }
