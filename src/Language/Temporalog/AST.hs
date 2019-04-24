@@ -237,7 +237,7 @@ instance HasPrecedence (HOp eleb) where
   precedence (AG.SomeOp HeadJump{}) = 1
 
 instance Pretty (TimeSym eleb) where
-  pretty (Exp predSym) = pretty predSym
+  pretty (Exp predSym) = "<" <> pretty predSym <> ">"
   pretty Imp           = empty
 
 instance Pretty (BOp eleb temp opKind) where
