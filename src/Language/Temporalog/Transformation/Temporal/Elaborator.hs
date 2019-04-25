@@ -106,6 +106,16 @@ elaborateBody = fmap fst <$> cataA alg
         , timePred `S.delete` timePreds
         )
       Nothing      -> pure (phi, timePreds)
+  alg (SBindF span timeSym var action) = do
+    (phi, timePreds) <- action
+    mTimePred <- determineTime timeSym timePreds span
+    case mTimePred of
+      Just timePred -> pure
+        ( SBind span (Exp timePred) var phi
+        , timePred `S.insert` timePreds
+        )
+      Nothing      -> lift $
+        scold (Just span) "Time predicate of the bind is ambiguous."
   alg AG.SNullOpF{..} = do
     mOp <- elaborateBodyOp _nullOpF S.empty _spanF
     case mOp of
@@ -155,9 +165,8 @@ elaborateBodyOp op timePreds span = do
          EF timeSym       -> pure $ Right (EF, timeSym)
          AU timeSym       -> pure $ Right (AU, timeSym)
          EU timeSym       -> pure $ Right (EU, timeSym)
-         Bind timeSym var -> pure $ Right ((`Bind` var), timeSym)
-         BodyJump{}       -> lift $
-          scream Nothing "Body jump shouldn't reach this far in evaluation."
+         _                -> lift $ scream Nothing
+          "Hybrid operators shouldn't reach this far in elaboration."
     :: Elaboration
          (Either (BOp 'Explicit temp a)
                  ( TimeSym 'Explicit -> BOp 'Explicit temp a
