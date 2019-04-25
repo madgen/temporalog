@@ -71,12 +71,12 @@ elaborateHead = fmap fst <$> cataA alg
       -> Elaboration (Subgoal (HOp 'Explicit) a, S.Set PredicateSymbol)
   alg (SAtomF span atom)                    = elaborateAtom span atom
   alg (SHeadJumpF span action timeSym time) = do
-    (phi     , timePreds)  <- action
+    (phi, timePreds) <- action
     mTimePred <- determineTime timeSym timePreds span
     case mTimePred of
       Just timePred -> pure
         ( SHeadJump span phi (Exp timePred) time
-        , timePred `S.insert` timePreds
+        , timePred `S.delete` timePreds
         )
       Nothing      -> pure (phi, timePreds)
 
@@ -97,6 +97,15 @@ elaborateBody = fmap fst <$> cataA alg
                            , S.Set PredicateSymbol))
       -> Elaboration (Subgoal (BOp 'Explicit temp) a, S.Set PredicateSymbol)
   alg (AG.SAtomF span atom) = elaborateAtom span atom
+  alg (SBodyJumpF span action timeSym time) = do
+    (phi, timePreds) <- action
+    mTimePred <- determineTime timeSym timePreds span
+    case mTimePred of
+      Just timePred -> pure
+        ( SBodyJump span phi (Exp timePred) time
+        , timePred `S.delete` timePreds
+        )
+      Nothing      -> pure (phi, timePreds)
   alg AG.SNullOpF{..} = do
     mOp <- elaborateBodyOp _nullOpF S.empty _spanF
     case mOp of
@@ -133,25 +142,27 @@ elaborateBodyOp :: forall temp a
                 -> SrcSpan
                 -> Elaboration (Maybe (BOp 'Explicit temp a))
 elaborateBodyOp op timePreds span = do
-  let e :: Either (BOp 'Explicit temp a)
-                  ( TimeSym 'Explicit -> BOp 'Explicit temp a
-                  , TimeSym 'Implicit
-                  ) =
-        case op of
-          Negation              -> Left Negation
-          Conjunction           -> Left Conjunction
-          Disjunction           -> Left Disjunction
-          Dogru                 -> Left Dogru
-          AX timeSym            -> Right (AX, timeSym)
-          EX timeSym            -> Right (EX, timeSym)
-          AG timeSym            -> Right (AG, timeSym)
-          EG timeSym            -> Right (EG, timeSym)
-          AF timeSym            -> Right (AF, timeSym)
-          EF timeSym            -> Right (EF, timeSym)
-          AU timeSym            -> Right (AU, timeSym)
-          EU timeSym            -> Right (EU, timeSym)
-          Bind timeSym var      -> Right ((`Bind` var), timeSym)
-          BodyJump timeSym term -> Right ((`BodyJump` term), timeSym)
+  e <- case op of
+         Negation         -> pure $ Left Negation
+         Conjunction      -> pure $ Left Conjunction
+         Disjunction      -> pure $ Left Disjunction
+         Dogru            -> pure $ Left Dogru
+         AX timeSym       -> pure $ Right (AX, timeSym)
+         EX timeSym       -> pure $ Right (EX, timeSym)
+         AG timeSym       -> pure $ Right (AG, timeSym)
+         EG timeSym       -> pure $ Right (EG, timeSym)
+         AF timeSym       -> pure $ Right (AF, timeSym)
+         EF timeSym       -> pure $ Right (EF, timeSym)
+         AU timeSym       -> pure $ Right (AU, timeSym)
+         EU timeSym       -> pure $ Right (EU, timeSym)
+         Bind timeSym var -> pure $ Right ((`Bind` var), timeSym)
+         BodyJump{}       -> lift $
+          scream Nothing "Body jump shouldn't reach this far in evaluation."
+    :: Elaboration
+         (Either (BOp 'Explicit temp a)
+                 ( TimeSym 'Explicit -> BOp 'Explicit temp a
+                 , TimeSym 'Implicit
+                 ))
 
   case e of
     Right (constructor, timeSym) -> do
