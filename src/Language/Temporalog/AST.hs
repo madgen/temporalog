@@ -82,7 +82,7 @@ data Declaration = Declaration
 data ElaborationStatus = Explicit | Implicit
 
 data TimeSym :: ElaborationStatus -> Type where
-  Imp ::                    TimeSym Implicit
+  Imp ::                    TimeSym 'Implicit
   Exp :: PredicateSymbol -> TimeSym eleb
 
 deriving instance Eq (TimeSym eleb)
@@ -121,7 +121,7 @@ timePred op =
     EU (Exp timePred)         -> Just timePred
     Bind (Exp timePred) _     -> Just timePred
     BodyJump (Exp timePred) _ -> Just timePred
-    _                          -> Nothing
+    _                         -> Nothing
 
 data HOp :: ElaborationStatus -> AG.OpKind -> Type where
   HeadJump      :: TimeSym eleb -> AG.Term -> HOp eleb 'AG.Unary
