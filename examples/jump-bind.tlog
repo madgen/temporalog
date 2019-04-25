@@ -16,7 +16,7 @@ q() @ 3.
 p() @ 2.
 p() @ 4.
 
-?- | X (p() @ X). % Same as p, so true at 2, 4
+?- | <v'> X (p() @ X). % Same as p, so true at 2, 4
 ?- p() @ 2 @ 1.   % Same as "is p true at 2 at 1", so yes
 ?- p() @ 1 @ 2.   % Same as "is p true at 1 at 2", so no
 
@@ -41,4 +41,7 @@ is1(1).
 % Shadowing behaviour
 ?- | X (is1(X), p()). % Doesn't hold
 % Holds at 2 despite outer X being set to 1.
-?- | X (is1(X), (| X p() @ 2)).
+?- | <v'> X (is1(X), (| X p() @ 2)).
+
+% Requires annotation due to is1 being pure. It is false.
+?- (| <v'> X is1(X)) @ 2.
