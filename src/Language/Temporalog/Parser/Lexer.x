@@ -65,9 +65,9 @@ token :-
 <scB> "U"        { basic TU }
 
 -- When time is explicit
-<scB> "<"         { enterStartCodeAnd scSP $ basic TLeftAngle }
-<scSP> @fxSym     { useInput TFxSym }
-<scSP> ">"        { exitStartCodeAnd $ basic TRightAngle }
+<scB,scBB,scBJ> "<" { enterStartCodeAnd scSP $ basic TLeftAngle }
+<scSP> @fxSym       { useInput TFxSym }
+<scSP> ">"          { exitStartCodeAnd $ basic TRightAngle }
 
 <scB>     ":-"     { basic TRule }
 <scA>     ":-"     { exitStartCodeAnd $ basic TRule }
