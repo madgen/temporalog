@@ -29,6 +29,7 @@ module Language.Temporalog.AST
   , pattern SHeadJumpF, pattern SBodyJumpF, pattern SBindF
   , TimeSym(..)
   , HOp(..), BOp(..), ElaborationStatus(..), Temporal(..) , AG.OpKind(..)
+  , timePred
   , AG.SomeOp(..)
   , AG.AtomicFormula(..)
   , PredicateSymbol(..)
@@ -106,6 +107,21 @@ data BOp :: ElaborationStatus -> Temporal -> AG.OpKind -> Type where
   EU            :: TimeSym eleb ->            BOp eleb 'Temporal 'AG.Binary
   Bind          :: TimeSym eleb -> AG.Var  -> BOp eleb 'Temporal 'AG.Unary
   BodyJump      :: TimeSym eleb -> AG.Term -> BOp eleb 'Temporal 'AG.Unary
+
+timePred :: BOp 'Explicit temp a -> Maybe PredicateSymbol
+timePred op =
+  case op of
+    AX (Exp timePred)         -> Just timePred
+    EX (Exp timePred)         -> Just timePred
+    AG (Exp timePred)         -> Just timePred
+    EG (Exp timePred)         -> Just timePred
+    AF (Exp timePred)         -> Just timePred
+    EF (Exp timePred)         -> Just timePred
+    AU (Exp timePred)         -> Just timePred
+    EU (Exp timePred)         -> Just timePred
+    Bind (Exp timePred) _     -> Just timePred
+    BodyJump (Exp timePred) _ -> Just timePred
+    _                          -> Nothing
 
 data HOp :: ElaborationStatus -> AG.OpKind -> Type where
   HeadJump      :: TimeSym eleb -> AG.Term -> HOp eleb 'AG.Unary

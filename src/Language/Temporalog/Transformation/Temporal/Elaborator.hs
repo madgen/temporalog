@@ -1,6 +1,5 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -51,14 +50,14 @@ elaborateSentence (AG.SClause AG.Clause{..}) = do
 determineTime :: TimeSym 'Implicit
               -> S.Set PredicateSymbol
               -> SrcSpan
-              -> Elaboration (Maybe PredicateSymbol, S.Set PredicateSymbol)
+              -> Elaboration (Maybe PredicateSymbol)
 determineTime timeSym timePreds span =
   case timeSym of
-    Exp timePred -> pure (Just timePred, timePred `S.insert` timePreds)
+    Exp timePred -> pure $ Just timePred
     Imp          ->
       case S.elems timePreds of
-        []           -> pure (Nothing, timePreds)
-        [ timePred ] -> pure (Just timePred, timePreds)
+        []           -> pure Nothing
+        [ timePred ] -> pure $ Just timePred
         timePreds'   -> lift $ scold (Just span) $
           "Temporal expression is ambiguous. Time predicate may be one of: "
           <> T.intercalate ", " (map pp timePreds')
@@ -73,10 +72,13 @@ elaborateHead = fmap fst <$> cataA alg
   alg (SAtomF span atom)                    = elaborateAtom span atom
   alg (SHeadJumpF span action timeSym time) = do
     (phi     , timePreds)  <- action
-    (mPredSym, timePreds') <- determineTime timeSym timePreds span
-    case mPredSym of
-      Just predSym -> pure (SHeadJump span phi (Exp predSym) time, timePreds')
-      Nothing      -> pure (phi, timePreds')
+    mTimePred <- determineTime timeSym timePreds span
+    case mTimePred of
+      Just timePred -> pure
+        ( SHeadJump span phi (Exp timePred) time
+        , timePred `S.insert` timePreds
+        )
+      Nothing      -> pure (phi, timePreds)
 
 elaborateAtom :: SrcSpan
               -> AtomicFormula a
@@ -96,37 +98,40 @@ elaborateBody = fmap fst <$> cataA alg
       -> Elaboration (Subgoal (BOp 'Explicit temp) a, S.Set PredicateSymbol)
   alg (AG.SAtomF span atom) = elaborateAtom span atom
   alg AG.SNullOpF{..} = do
-    (mOp, timePreds) <- elaborateBodyOp _nullOpF S.empty _spanF
+    mOp <- elaborateBodyOp _nullOpF S.empty _spanF
     case mOp of
-      Just op -> pure (AG.SNullOp{_nullOp = op, _span = _spanF}, timePreds)
+      Just op -> pure (AG.SNullOp{_nullOp = op, _span = _spanF}, S.empty)
       Nothing -> lift $
         scream (Just _spanF) "Nullary operator couldn't be elaborated."
   alg AG.SUnOpF{_childF = act,..} = do
     (phi, timePreds) <- act
-    (mOp, timePreds') <- elaborateBodyOp _unOpF timePreds _spanF
-    pure . (,timePreds') $ case mOp of
-      Just op -> AG.SUnOp{_child = phi, _span = _spanF, _unOp = op}
-      Nothing -> phi
+    mOp <- elaborateBodyOp _unOpF timePreds _spanF
+    pure $ case mOp of
+      Just op -> ( AG.SUnOp{_child = phi, _span = _spanF, _unOp = op}
+                 , maybe timePreds (`S.insert` timePreds) (timePred op)
+                 )
+      Nothing -> (phi, timePreds)
   alg AG.SBinOpF{_child1F = act1, _child2F = act2, ..} = do
     (phi, timePreds1) <- act1
     (psi, timePreds2) <- act2
     let timePreds = timePreds1 `S.union` timePreds2
-    (mOp, timePreds') <- elaborateBodyOp _binOpF timePreds _spanF
-    pure . (,timePreds') $ case mOp of
-      Just op -> AG.SBinOp
-        { _child1 = phi
-        , _child2 = psi
-        , _span   = _spanF
-        , _binOp  = op}
-      Nothing -> psi
+    mOp <- elaborateBodyOp _binOpF timePreds _spanF
+    pure $ case mOp of
+      Just op ->
+        ( AG.SBinOp
+            { _child1 = phi
+            , _child2 = psi
+            , _span   = _spanF
+            , _binOp  = op}
+        , maybe timePreds (`S.insert` timePreds) (timePred op)
+        )
+      Nothing -> (psi, timePreds)
 
 elaborateBodyOp :: forall temp a
                  . BOp 'Implicit temp a
                 -> S.Set PredicateSymbol
                 -> SrcSpan
-                -> Elaboration ( Maybe (BOp 'Explicit temp a)
-                               , S.Set PredicateSymbol
-                               )
+                -> Elaboration (Maybe (BOp 'Explicit temp a))
 elaborateBodyOp op timePreds span = do
   let e :: Either (BOp 'Explicit temp a)
                   ( TimeSym 'Explicit -> BOp 'Explicit temp a
@@ -150,8 +155,8 @@ elaborateBodyOp op timePreds span = do
 
   case e of
     Right (constructor, timeSym) -> do
-      (mPredSym, timePreds') <- determineTime timeSym timePreds span
+      mPredSym <- determineTime timeSym timePreds span
       case mPredSym of
-        Just predSym -> pure (Just (constructor (Exp predSym)), timePreds')
-        Nothing      -> pure (Nothing                         , timePreds')
-    Left constructor -> pure (Just constructor                , timePreds)
+        Just predSym -> pure $ Just (constructor (Exp predSym))
+        Nothing      -> pure Nothing
+    Left constructor -> pure $ Just constructor
