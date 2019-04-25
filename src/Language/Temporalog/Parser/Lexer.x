@@ -54,7 +54,6 @@ token :-
 -- Temporal operators
 <scB> "["        { basic TLeftBracket }
 <scB> "]"        { basic TRightBracket }
-<scB> "!"        { basic TNeg }
 <scB> "EX"       { basic TEX }
 <scB> "EF"       { basic TEF }
 <scB> "EG"       { basic TEG }
