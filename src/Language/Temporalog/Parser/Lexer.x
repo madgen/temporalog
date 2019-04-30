@@ -26,7 +26,8 @@ import Debug.Trace
 @wild     = _@var?
 @fxSym    = [a-z]@idChar*
 
-@int = 0|[1-9][0-9]*
+@posint = [1-9][0-9]*
+@int    = 0|\-?@posint
 
 -- Start codes
 -- scB  = Body
