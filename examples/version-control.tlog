@@ -70,4 +70,4 @@ recent_version(H,H') :- timestamp(T) @ H, recent(T), version(H,H').
 reverse_version(H,H') :- version(H',H), ! version(H,H).
 reverse_version(H,H)  :- version(H,H'), ! version(_,H).
 
-?- AG <reverse_version> | <reverse_version> I (file("c.txt") @ I).
+?- AG | <reverse_version> I (file("c.txt") @ I).
