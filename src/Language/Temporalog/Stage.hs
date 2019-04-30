@@ -106,10 +106,8 @@ compiled file bs = do
 
 guardInjected :: Stage (E.Program 'E.ABase, R.Solution 'E.ABase)
 guardInjected file bs = do
-  (meta, (pr, sol)) <- compiled file bs
-  pr'               <- injectGuards meta pr
-
-  pure (pr', sol)
+  (meta, res) <- compiled file bs
+  injectGuards meta res
 
 dataflowSafe :: Stage (E.Program 'E.ABase, R.Solution 'E.ABase)
 dataflowSafe file bs = do

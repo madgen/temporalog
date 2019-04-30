@@ -7,7 +7,7 @@ module Language.Temporalog.Transformation.GuardInjection
   ( injectGuards
   ) where
 
-import Protolude hiding (head)
+import Protolude hiding (head, sym)
 
 import qualified Data.Graph.Inductive as Gr
 import           Data.List ((\\), nub, lookup)
@@ -21,13 +21,29 @@ import           Language.Exalog.Core
 import           Language.Exalog.Dependency
 import           Language.Exalog.Logger
 import           Language.Exalog.RangeRestriction (isRangeRestricted)
+import qualified Language.Exalog.Relation as R
+import qualified Language.Exalog.Tuples as T
 import           Language.Exalog.SrcLoc (span)
 import           Language.Exalog.WellModing (isWellModed, checkWellModability)
 
 import qualified Language.Temporalog.Metadata as MD
 import           Language.Temporalog.Transformation.Fresh
 
-type Injection = FreshT Logger
+type Injection = FreshT (StateT (R.Solution 'ABase) Logger)
+
+runFreshVar :: Clause 'ABase -> Fresh a -> a
+runFreshVar cl = runFresh (Just "C") reservedVars
+  where
+  reservedVars = map _varName (variables cl)
+
+runInjection :: Program 'ABase -> R.Solution 'ABase -> Injection a -> Logger (a, R.Solution 'ABase)
+runInjection pr sol action = second (<> sol) <$> (runSolT . runFreshPredSymT pr) action
+
+runSolT :: Monad m => StateT (R.Solution 'ABase) m a -> m (a, R.Solution 'ABase)
+runSolT = (`runStateT` mempty)
+
+add :: Monad m => R.Relation 'ABase -> StateT (R.Solution 'ABase) m ()
+add rel = modify (R.add rel)
 
 runFreshPredSymT :: Monad m => Program 'ABase -> FreshT m a -> m a
 runFreshPredSymT Program{clauses = clauses} =
@@ -41,8 +57,10 @@ runFreshPredSymT Program{clauses = clauses} =
 freshPredSym :: Monad m => FreshT m PredicateSymbol
 freshPredSym = PredicateSymbol <$> fresh
 
-injectGuards :: MD.Metadata -> Program 'ABase -> Logger (Program 'ABase)
-injectGuards metadata pr@Program{..} = runFreshPredSymT pr $ do
+injectGuards :: MD.Metadata
+             -> (Program 'ABase, R.Solution 'ABase)
+             -> Logger (Program 'ABase, R.Solution 'ABase)
+injectGuards metadata (pr@Program{..}, sol) = runInjection pr sol $ do
   injectedClausess <- traverse assessAndTransform temporalClusters
 
   pure $ Program
@@ -60,28 +78,34 @@ injectGuards metadata pr@Program{..} = runFreshPredSymT pr $ do
   assessAndTransform cluster@Program{clauses = clss}
     | isWellModed cluster && isRangeRestricted cluster = pure clss
     | otherwise = do
-      lift $ checkWellModability (adornProgram cluster)
+      lift $ lift $ checkWellModability (adornProgram cluster)
       injectGuard cluster
 
   injectGuard :: Program 'ABase -> Injection [ Clause 'ABase ]
   injectGuard cluster@Program{clauses = topClause : _} = do
     let (guardLits, bodyMinusGuard) = findGuard topClause
 
-    case NE.nonEmpty guardLits of
-      Just guardBody -> do
-        guardSym <- freshPredSym
+    let auxSymMapping =
+         runFreshVar topClause (extractAuxSyms (NE.head bodyMinusGuard))
+    let protoGuardConstants = fst <$> auxSymMapping
+    newBodyMinusGuard <- replaceAuxConstants auxSymMapping bodyMinusGuard
 
-        let guardVars = nub . fmap TVar . join $ variables <$> guardLits
+    guardSym <- freshPredSym
 
-        V.withSizedList guardVars $ \(guardTerms :: V.Vector n Term) -> do
+    let protoGuardTerms = (nub . fmap TVar . join $ variables <$> guardLits)
+                       <> (TSym <$> protoGuardConstants)
 
-          let guardPred = Predicate
-                { annotation = PredABase $ span topClause
-                , fxSym      = guardSym
-                , arity      = sing :: SNat n
-                , nature     = Logical
-                }
+    V.withSizedList protoGuardTerms $ \(guardTerms :: V.Vector n Term) -> do
 
+      let guardPred = Predicate
+            { annotation = PredABase $ span topClause
+            , fxSym      = guardSym
+            , arity      = sing :: SNat n
+            , nature     = Logical
+            }
+
+      case NE.nonEmpty guardLits of
+        Just guardBody -> do
           let guardHead = Literal
                 { annotation = LitABase $ span topClause
                 , polarity   = Positive
@@ -98,7 +122,7 @@ injectGuards metadata pr@Program{..} = runFreshPredSymT pr $ do
           let newTopClause = Clause
                 { annotation = ClABase $ span topClause
                 , head       = head topClause
-                , body       = NE.cons guardHead bodyMinusGuard
+                , body       = NE.cons guardHead newBodyMinusGuard
                 }
 
           let topHead = predicateBox $ head topClause
@@ -108,8 +132,20 @@ injectGuards metadata pr@Program{..} = runFreshPredSymT pr $ do
 
           pure $ newTopClause : guardClause : newAuxClss
 
-      Nothing -> lift $ scold (Just $ span topClause) "Clause is ill-moded."
-  injectGuard Program{clauses = []} = lift $
+        Nothing -> do
+          when (null protoGuardConstants) $
+            lift $ lift $ scold (Just $ span topClause) "Clause is ill-moded."
+
+          guardConstants <- (`traverse` guardTerms) $ \case
+            TSym s -> pure s
+            TVar{} -> lift $ lift $
+              scream (Just $ span topClause) "Constant terms has a variable."
+
+          lift $ add $ R.Relation guardPred (T.fromList [ guardConstants ])
+
+          pure []
+
+  injectGuard Program{clauses = []} = lift $ lift $
     scream Nothing "Empty cluster during guard injection."
 
   enterAuxillary :: Literal 'ABase      -- Guard literal
@@ -196,6 +232,24 @@ injectGuards metadata pr@Program{..} = runFreshPredSymT pr $ do
     , queryPreds = [ predicateBox . head $ cl ]
     , annotation = annotation
     }
+
+extractAuxSyms :: Literal 'ABase -> Fresh [ (Sym, Var) ]
+extractAuxSyms Literal{..} = do
+  let syms = mapMaybe (\case {TSym s -> Just s; _ -> Nothing})
+           $ V.toList terms
+  (`traverse` syms) (\s -> (s,) . Var <$> fresh)
+
+replaceAuxConstants :: [ (Sym,Var) ]
+                    -> NE.NonEmpty (Literal 'ABase)
+                    -> Injection (NE.NonEmpty (Literal 'ABase))
+replaceAuxConstants varMap (Literal{..} NE.:| rest) = do
+  newTerms <- (`traverse` terms) $ \case
+    TSym sym -> maybe
+      (lift $ lift $ scream Nothing "Constant is not in the variable map.")
+      (pure . TVar)
+      (sym `lookup` varMap)
+    t -> pure t
+  pure $ Literal{terms = newTerms,..} NE.:| rest
 
 --------------------------------------------------------------------------------
 -- Variable substitutions
