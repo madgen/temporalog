@@ -1,0 +1,73 @@
+% Object graph
+%
+%    1                                  8
+%  a.txt        2          7          b.txt
+%  c.txt      c.txt      a.txt        a.txt
+% a4afb5 --> 0778df --> 376e06 ----> 288f0d---
+%                  \            /      ^     |
+%                   --> 9eb447--       |------
+%                        b.txt
+%                        c.txt
+%                          5
+%
+.decl version(text,text).
+version("a4afb5","0778df").
+version("0778df","376e06").
+version("376e06","288f0d").
+version("0778df","9eb447").
+version("9eb447","288f0d").
+version("288f0d","288f0d").
+
+.decl clock(int,int).
+clock(1,2).
+clock(2,3).
+clock(3,4).
+clock(4,5).
+clock(5,6).
+clock(6,7).
+clock(7,8).
+clock(8,9).
+clock(9,-1).
+clock(-1,-1).
+
+.decl timestamp(int) @ version.
+timestamp(1) @ "a4afb5".
+timestamp(2) @ "0778df".
+timestamp(5) @ "9eb447".
+timestamp(7) @ "376e06".
+timestamp(8) @ "288f0d".
+
+.decl recent(int).
+recent(6).
+recent(T') :- recent(T), clock(T,T'), ! clock(T,-1).
+
+.decl file(text) @ version.
+file("a.txt") @ "a4afb5".
+file("c.txt") @ "a4afb5".
+file("c.txt") @ "0778df".
+file("a.txt") @ "376e06".
+file("b.txt") @ "9eb447".
+file("c.txt") @ "9eb447".
+file("a.txt") @ "288f0d".
+file("b.txt") @ "288f0d".
+
+.decl file_explicit(text,text).
+file_explicit(File,Version) :- file(File) @ Version.
+
+?- AG file("a.txt").
+?- (AG file("a.txt")) @ "a4afb5".
+?- AG (file("a.txt") @ "a4afb5").
+
+?- | <version> T (file(File) @ T).
+?- timestamp(T), recent(T), file(File).
+
+.decl recent_version(text,text).
+recent_version(H,H') :- timestamp(T) @ H, recent(T), version(H,H').
+
+?- | <recent_version> I (file("c.txt") @ I).
+
+.decl reverse_version(text,text).
+reverse_version(H,H') :- version(H',H), ! version(H,H).
+reverse_version(H,H)  :- version(H,H'), ! version(_,H).
+
+?- AG <reverse_version> | <reverse_version> I (file("c.txt") @ I).
