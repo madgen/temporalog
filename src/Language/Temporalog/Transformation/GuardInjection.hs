@@ -93,7 +93,7 @@ injectGuards metadata (pr@Program{..}, sol) = runInjection pr sol $ do
     guardSym <- freshPredSym
 
     let protoGuardTerms = (nub . fmap TVar . join $ variables <$> guardLits)
-                       <> (TSym <$> protoGuardConstants)
+                       <> (TVar <$> map snd auxSymMapping)
 
     V.withSizedList protoGuardTerms $ \(guardTerms :: V.Vector n Term) -> do
 
@@ -104,46 +104,47 @@ injectGuards metadata (pr@Program{..}, sol) = runInjection pr sol $ do
             , nature     = Logical
             }
 
+      let guardHead = Literal
+            { annotation = LitABase $ span topClause
+            , polarity   = Positive
+            , predicate  = guardPred
+            , terms      = guardTerms
+            }
+
+      let newTopClause = Clause
+            { annotation = ClABase $ span topClause
+            , head       = head topClause
+            , body       = NE.cons guardHead newBodyMinusGuard
+            }
+
+      let topHead = predicateBox $ head topClause
+
+      newAuxClss <- (`execStateT` []) $
+        enterAuxillary
+          guardHead cluster (unitSubst guardHead) topHead newBodyMinusGuard
+
       case NE.nonEmpty guardLits of
         Just guardBody -> do
-          let guardHead = Literal
-                { annotation = LitABase $ span topClause
-                , polarity   = Positive
-                , predicate  = guardPred
-                , terms      = guardTerms
-                }
-
           let guardClause = Clause
                 { annotation = ClABase $ span topClause
                 , head       = guardHead
                 , body       = guardBody
                 }
 
-          let newTopClause = Clause
-                { annotation = ClABase $ span topClause
-                , head       = head topClause
-                , body       = NE.cons guardHead newBodyMinusGuard
-                }
-
-          let topHead = predicateBox $ head topClause
-          newAuxClss <- (`execStateT` []) $
-            enterAuxillary
-              guardHead cluster (unitSubst guardHead) topHead bodyMinusGuard
-
           pure $ newTopClause : guardClause : newAuxClss
 
         Nothing -> do
-          when (null protoGuardConstants) $
-            lift $ lift $ scold (Just $ span topClause) "Clause is ill-moded."
+          when (null protoGuardConstants) $ lift $ lift $
+            scold (Just $ span topClause) "Clause is ill-moded."
 
-          guardConstants <- (`traverse` guardTerms) $ \case
-            TSym s -> pure s
-            TVar{} -> lift $ lift $
-              scream (Just $ span topClause) "Constant terms has a variable."
+          case V.fromList protoGuardConstants :: Maybe (V.Vector n Sym) of
+            Just guardConstants -> lift $
+              add $ R.Relation guardPred (T.fromList [ ])
+            Nothing -> lift $ lift $
+              scream (Just $ span topClause)
+                "Number of guard constants is different than predicate arity."
 
-          lift $ add $ R.Relation guardPred (T.fromList [ guardConstants ])
-
-          pure []
+          pure $ newTopClause : newAuxClss
 
   injectGuard Program{clauses = []} = lift $ lift $
     scream Nothing "Empty cluster during guard injection."
@@ -234,7 +235,7 @@ injectGuards metadata (pr@Program{..}, sol) = runInjection pr sol $ do
     }
 
 extractAuxSyms :: Literal 'ABase -> Fresh [ (Sym, Var) ]
-extractAuxSyms Literal{..} = do
+extractAuxSyms Literal{..} = nub <$> do
   let syms = mapMaybe (\case {TSym s -> Just s; _ -> Nothing})
            $ V.toList terms
   (`traverse` syms) (\s -> (s,) . Var <$> fresh)
