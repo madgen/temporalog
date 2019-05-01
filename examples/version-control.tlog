@@ -30,12 +30,12 @@ clock(8,9).
 clock(9,-1).
 clock(-1,-1).
 
-.decl timestamp(int) @ version.
-timestamp(1) @ "a4afb5".
-timestamp(2) @ "0778df".
-timestamp(5) @ "9eb447".
-timestamp(7) @ "376e06".
-timestamp(8) @ "288f0d".
+.decl timestamp() @ version clock.
+timestamp() @ <version> "a4afb5" @ <clock> 1.
+timestamp() @ <version> "0778df" @ <clock> 2.
+timestamp() @ <version> "9eb447" @ <clock> 5.
+timestamp() @ <version> "376e06" @ <clock> 7.
+timestamp() @ <version> "288f0d" @ <clock> 8.
 
 .decl recent(int).
 recent(6).
@@ -59,10 +59,10 @@ file_explicit(File,Version) :- file(File) @ Version.
 ?- AG (file("a.txt") @ "a4afb5").
 
 ?- | <version> T (file(File) @ T).
-?- timestamp(T), recent(T), file(File).
+?- file(File), timestamp(), | <clock> T recent(T).
 
 .decl recent_version(text,text).
-recent_version(H,H') :- timestamp(T) @ H, recent(T), version(H,H').
+recent_version(H,H') :- timestamp() @ <clock> T @ H, recent(T), version(H,H').
 
 ?- | <recent_version> I (file("c.txt") @ I).
 
@@ -71,3 +71,16 @@ reverse_version(H,H') :- version(H',H), ! version(H,H).
 reverse_version(H,H)  :- version(H,H'), ! version(_,H).
 
 ?- AG | <reverse_version> I (file("c.txt") @ I).
+
+.decl day(text) @ clock.
+day("Monday")    @ 1.
+day("Tuesday")   @ 2.
+day("Wednesday") @ 3.
+day("Thursday")  @ 4.
+day("Friday")    @ 5.
+day("Saturday")  @ 6.
+day("Sunday")    @ 7.
+day("Monday")    @ 8.
+day("Tuesday")   @ 9.
+
+?- file("a.txt"), timestamp(), | <clock> Time day("Monday").
