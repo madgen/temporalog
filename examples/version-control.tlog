@@ -83,4 +83,4 @@ day("Sunday")    @ 7.
 day("Monday")    @ 8.
 day("Tuesday")   @ 9.
 
-?- file("a.txt"), timestamp(), | <clock> Time day("Monday").
+?- file("a.txt"), timestamp(), day("Monday").
