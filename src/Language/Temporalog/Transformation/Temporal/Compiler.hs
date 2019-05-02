@@ -10,9 +10,7 @@ module Language.Temporalog.Transformation.Temporal.Compiler
 
 import Protolude
 
-import           Data.String (fromString)
 import           Data.List (nub)
-import           Data.Text (pack)
 import qualified Data.Map.Strict as M
 
 import qualified Language.Exalog.Logger as Log
@@ -228,8 +226,6 @@ eliminateTemporal metadata program = do
     -- Time parameters
     let deltaFV = TVar <$> nub (freeVars rho)
 
-    let delta   = TVar <$> nub (freeVars rho)
-
     uniqTimePreds <-
       lift $ lift $ lift $ lift $ lift $ uniqTimePredsM metadata rho
 
@@ -357,7 +353,7 @@ substParams var term = map (\case
 --------------------------------------------------------------------------------
 
 type CompilerT m =
-  FreshT (StateT [ AG.Clause (Const Void) (BOp Explicit 'ATemporal) ] m)
+  FreshT (StateT [ AG.Clause (Const Void) (BOp 'Explicit 'ATemporal) ] m)
 
 runCompilerT :: Monad m
               => CompilerT m a
@@ -412,10 +408,9 @@ freshTimeEnv :: [ PredicateSymbol ]
                   ( TimeEnv
                   , [ Var ] -- Newly generated vars
                   )
-freshTimeEnv timePreds = do
-  freshVars <- replicateM (length timePreds) freshVar
-  pure (M.fromList $ zip timePreds (TVar <$> freshVars), freshVars)
-
+freshTimeEnv tPreds = do
+  freshVars <- replicateM (length tPreds) freshVar
+  pure (M.fromList $ zip tPreds (TVar <$> freshVars), freshVars)
 
 uniqTimePredsM :: HasTimePredicates a
                => MD.Metadata -> a -> Log.Logger [ PredicateSymbol ]
