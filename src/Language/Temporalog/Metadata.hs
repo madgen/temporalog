@@ -102,7 +102,7 @@ processMetadata program = do
                   "Time predicate doesn't exist in a temporal declaration.")
       pure
       _timePredSyms
-    DeclJoin{..} -> _
+    DeclJoin{..} -> pure []
 
   let (timingDecls, deductiveDecls) =
         partition ((`elem` timePreds) . #_predSym . _atomType) aTemporalDecls
@@ -153,14 +153,16 @@ processMetadata program = do
 -- |Make sure there no repeated declarations for the same predicate.
 uniquenessCheck :: [ Declaration ] -> Log.Logger ()
 uniquenessCheck decls = do
-  let predSyms = map (#_predSym . _atomType) decls
+  let predSyms = (`mapMaybe` decls) $ \case
+        DeclPred{..} -> Just $ #_predSym _atomType
+        DeclJoin{..} -> Nothing
   let diff = predSyms \\ nub predSyms :: [ PredicateSymbol ]
   case head diff of
     Nothing              -> pure ()
     Just repeatedPred -> do
       let repeatedDecls = (`filter` decls) $ \case
             DeclPred{..} -> #_predSym _atomType == repeatedPred
-            DeclJoin{..} -> _
+            DeclJoin{..} -> False
       case head . map span $ repeatedDecls  of
         Just s  -> Log.scold (Just s) $
           "The declaration for predicate " <> pp repeatedPred <> " is repeated."
@@ -175,8 +177,8 @@ sentenceExistenceCheck sentences decls = forM_ decls $ \case
     let declaredPredSym = #_predSym _atomType
     checkExistence _span declaredPredSym
 
-    maybe (pure ()) (mapM_ (checkExistence _span)) _timePredSyms
-  DeclJoin{..} -> _
+    maybe (pure ()) (traverse_ (checkExistence _span)) _timePredSyms
+  DeclJoin{..} -> traverse_ (checkExistence _span) (_joint : _predSymsToJoin)
   where
   checkExistence span pred =
     unless (pred `elem` predsBeingDefined) $
