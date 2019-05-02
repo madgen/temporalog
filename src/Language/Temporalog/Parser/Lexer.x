@@ -34,15 +34,16 @@ import Debug.Trace
 -- scSP = Single predicate
 -- scBJ = Body jump
 -- scBB = Body bind
--- scD  = Declaration
+-- scDP = Predicate declaration
+-- scDJ = Join declaration
 -- scDT = Declaration time
 -- scA  = Atom
 -- scDA = Declaration atom
 -- str  = String
 token :-
 
-<0,scB,scSP,scBJ,scBB,scD,scDT,scA,scDA> $white+  ;
-<0>                                      "%".*    ;
+<0,scB,scSP,scBJ,scBB,scDP,scDJ,scDT,scA,scDA> $white+  ;
+<0> "%".*    ;
 
 <0,scB>    "("  { basic TLeftPar }
 <0,scB>    ")"  { basic TRightPar }
@@ -70,12 +71,14 @@ token :-
 <scSP> @fxSym       { useInput TFxSym }
 <scSP> ">"          { exitStartCodeAnd $ basic TRightAngle }
 
-<scB>     ":-"     { basic TRule }
-<scA>     ":-"     { exitStartCodeAnd $ basic TRule }
-<0>       "?-"     { enterStartCodeAnd scB $ basic TQuery }
-<0>       ".decl"  { enterStartCodeAnd scD $ basic TDecl }
-<scB,scD> "."      { exitStartCodeAnd $ basic TDot }
-<scDT>    "."      { exitStartCodeAnd $ exitStartCodeAnd $ basic TDot }
+<scB>           ":-"    { basic TRule }
+<scA>           ":-"    { exitStartCodeAnd $ basic TRule }
+<0>             "?-"    { enterStartCodeAnd scB $ basic TQuery }
+<0>             ".pred" { enterStartCodeAnd scDP $ basic TDeclPred }
+<0>             ".join" { enterStartCodeAnd scDJ $ enterStartCodeAnd scDT $ basic TDeclJoin }
+<scDT>          "with"  { exitStartCodeAnd $ basic TWith }
+<scB,scDP,scDJ> "."     { exitStartCodeAnd $ basic TDot }
+<scDT>          "."     { exitStartCodeAnd $ exitStartCodeAnd $ basic TDot }
 
 <0>        @fxSym { enterStartCodeAnd scB $ enterStartCodeAnd scA $ useInput TFxSym }
 <scB>      @fxSym { enterStartCodeAnd scA $ useInput TFxSym }
@@ -87,13 +90,13 @@ token :-
 <scA>      @wild  { basic TWildcard }
 <scA>      @int   { useInput (TInt . read . BS.unpack) }
 
-<scD>      @fxSym { enterStartCodeAnd scDA $ useInput TFxSym }
+<scDP>     @fxSym { enterStartCodeAnd scDA $ useInput TFxSym }
 <scDA>     "int"  { basic TTTInt }
 <scDA>     "bool" { basic TTTBool }
 <scDA>     "text" { basic TTTText }
 
-<scD>  "@"    { enterStartCodeAnd scDT $ basic TJump }
-<scDT> @fxSym { useInput TFxSym }
+<scDP> "@"         { enterStartCodeAnd scDT $ basic TJump }
+<scDT,scDJ> @fxSym { useInput TFxSym }
 
 <scB> "|"     { enterStartCodeAnd scBB $ basic TBind }
 <scBB> @var   { exitStartCodeAnd $ useInput TVariable }
@@ -122,7 +125,9 @@ data Token str =
   | TComma
   | TRule
   | TQuery
-  | TDecl
+  | TDeclPred
+  | TDeclJoin
+  | TWith
   | TTTInt
   | TTTBool
   | TTTText

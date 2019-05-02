@@ -95,11 +95,14 @@ processMetadata program = do
 
   let (temporalDecls, aTemporalDecls) = partition (isJust . _timePredSyms) decls
 
-  timePreds <- fmap join . (`traverse` temporalDecls) $ \Declaration{..} -> maybe
-    (Log.scream (Just _span)
-                "Time predicate doesn't exist in a temporal declaration.")
-    pure
-    _timePredSyms
+  timePreds <- fmap join . (`traverse` temporalDecls) $ \case
+    DeclPred{..} ->
+      maybe
+      (Log.scream (Just _span)
+                  "Time predicate doesn't exist in a temporal declaration.")
+      pure
+      _timePredSyms
+    DeclJoin{..} -> _
 
   let (timingDecls, deductiveDecls) =
         partition ((`elem` timePreds) . #_predSym . _atomType) aTemporalDecls
@@ -111,7 +114,7 @@ processMetadata program = do
   pure $ timingMap `M.union` deductiveMap `M.union` temporalMap
   where
   processATemporal :: Declaration -> (PredicateSymbol, PredicateInfo)
-  processATemporal Declaration{..} =
+  processATemporal DeclPred{..} =
     ( #_predSym _atomType
     , PredicateInfo
       { _originalType = _terms _atomType
@@ -119,11 +122,12 @@ processMetadata program = do
       , _auxillary    = False
       }
     )
+  processATemporal DeclJoin{..} = _
 
   processTemporal :: Metadata
                   -> Declaration
                   -> Log.Logger (PredicateSymbol, PredicateInfo)
-  processTemporal metadata Declaration{..} = do
+  processTemporal metadata DeclPred{..} = do
     tSyms <- maybe (Log.scream Nothing "Processing an atemporal predicate.") pure
       _timePredSyms
 
@@ -144,6 +148,7 @@ processMetadata program = do
            , _auxillary    = False
            }
          )
+  processTemporal metadata DeclJoin{..} = _
 
 -- |Make sure there no repeated declarations for the same predicate.
 uniquenessCheck :: [ Declaration ] -> Log.Logger ()
@@ -153,8 +158,9 @@ uniquenessCheck decls = do
   case head diff of
     Nothing              -> pure ()
     Just repeatedPred -> do
-      let repeatedDecls =
-            filter ((repeatedPred ==) . #_predSym . _atomType) decls
+      let repeatedDecls = (`filter` decls) $ \case
+            DeclPred{..} -> #_predSym _atomType == repeatedPred
+            DeclJoin{..} -> _
       case head . map span $ repeatedDecls  of
         Just s  -> Log.scold (Just s) $
           "The declaration for predicate " <> pp repeatedPred <> " is repeated."
@@ -164,11 +170,13 @@ uniquenessCheck decls = do
 -- |Check all predicates appearing in declarations have corresponding clauses
 -- defining them.
 sentenceExistenceCheck :: [ Sentence eleb ] -> [ Declaration ] -> Log.Logger ()
-sentenceExistenceCheck sentences decls = forM_ decls $ \Declaration{..} -> do
-  let declaredPredSym = #_predSym _atomType
-  checkExistence _span declaredPredSym
+sentenceExistenceCheck sentences decls = forM_ decls $ \case
+  DeclPred{..} -> do
+    let declaredPredSym = #_predSym _atomType
+    checkExistence _span declaredPredSym
 
-  maybe (pure ()) (mapM_ (checkExistence _span)) _timePredSyms
+    maybe (pure ()) (mapM_ (checkExistence _span)) _timePredSyms
+  DeclJoin{..} -> _
   where
   checkExistence span pred =
     unless (pred `elem` predsBeingDefined) $

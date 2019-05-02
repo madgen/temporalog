@@ -73,11 +73,17 @@ type Fact eleb = AG.Fact (HOp eleb)
 
 type Subgoal = AG.Subgoal
 
-data Declaration = Declaration
-  { _span :: SrcSpan
-  , _atomType :: AG.AtomicFormula AG.TermType
-  , _timePredSyms :: Maybe [ PredicateSymbol ]
-  }
+data Declaration =
+    DeclPred
+      { _span         :: SrcSpan
+      , _atomType     :: AG.AtomicFormula AG.TermType
+      , _timePredSyms :: Maybe [ PredicateSymbol ]
+      }
+  | DeclJoin
+      { _span           :: SrcSpan
+      , _joint          :: PredicateSymbol
+      , _predSymsToJoin :: [ PredicateSymbol ]
+      }
 
 data ElaborationStatus = Explicit | Implicit
 
@@ -276,5 +282,9 @@ instance Pretty (HOp eleb opKind) where
   pretty (HeadJump timeSym time) = pretty timeSym <+> pretty time <+> "@ "
 
 instance Pretty Declaration where
-  pretty (Declaration _ atom mTimes) =
-    "decl" <+> pretty atom <+> "@" <+?> maybe empty (hcat . punctuate "," . prettyC) mTimes <> "."
+  pretty DeclPred{..} =
+    ".pred" <+> pretty _atomType
+      <+> "@" <+?> maybe empty (hcat . prettyC) _timePredSyms <> "."
+  pretty DeclJoin{..} =
+    ".join" <+> (hcat . prettyC) _predSymsToJoin
+      <+> "with" <+> pretty _joint <> "."

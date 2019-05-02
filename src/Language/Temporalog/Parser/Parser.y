@@ -40,7 +40,9 @@ import Language.Temporalog.Parser.Lexer (Token(..), lex)
   disj     { L.Lexeme{L._token = TDisj} }
   neg      { L.Lexeme{L._token = TNeg} }
 
-  decl     { L.Lexeme{L._token = TDecl} }
+  pred     { L.Lexeme{L._token = TDeclPred} }
+  join     { L.Lexeme{L._token = TDeclJoin} }
+  with     { L.Lexeme{L._token = TWith} }
   intType  { L.Lexeme{L._token = TTTInt} }
   boolType { L.Lexeme{L._token = TTTBool} }
   textType { L.Lexeme{L._token = TTTText} }
@@ -83,8 +85,9 @@ CLAUSES :: { [ Statement 'Implicit ] }
 |                     { [] }
 
 DECLARATION :: { Declaration }
-: decl ATOM_TYPE "."             { Declaration (span ($1,$3)) $2 Nothing }
-| decl ATOM_TYPE "@" FX_SYMS "." { Declaration (span ($1,$5)) $2 (Just $ map snd . reverse $ $4) }
+: pred ATOM_TYPE "."             { DeclPred (span ($1,$3)) $2 Nothing }
+| pred ATOM_TYPE "@" FX_SYMS "." { DeclPred (span ($1,$5)) $2 (Just $ map snd . reverse $ $4) }
+| join FX_SYMS with FX_SYM "."   { DeclJoin (span ($1,$5)) (snd $4) (map snd . reverse $ $2) }
 
 CLAUSE :: { Sentence 'Implicit }
 : HEAD ":-" SUBGOAL "." { G.SClause $ G.Clause (span ($1,$4)) $1 $3 }
