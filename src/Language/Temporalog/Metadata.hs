@@ -93,8 +93,8 @@ processMetadata program = do
         DeclPred{..} -> Left _predDecl
         DeclJoin{..} -> Right _joinDecl
 
-  predUniquenessCheck predDecls
-  joinUniquenessCheck joinDecls
+  predDeclUniquenessCheck predDecls
+  joinDeclUniquenessCheck joinDecls
 
   declarationExistenceCheck sentences predDecls
 
@@ -116,7 +116,13 @@ processMetadata program = do
   let deductiveMap = M.fromList  $  map processATemporal                 deductiveDecls
   temporalMap     <- M.fromList <$> traverse (processTemporal timingMap) temporalDecls
 
-  pure $ timingMap `M.union` deductiveMap `M.union` temporalMap
+  let metadata = timingMap `M.union` deductiveMap `M.union` temporalMap
+
+  traverse_ (checkJoinTemporality metadata) joinDecls
+
+  checkJoinUniqueness metadata joinDecls
+
+  pure metadata
   where
   processATemporal :: PredicateDeclaration -> (PredicateSymbol, PredicateInfo)
   processATemporal PredicateDeclaration{..} =
@@ -154,8 +160,8 @@ processMetadata program = do
          )
 
 -- |Make sure there no repeated declarations for the same predicate.
-predUniquenessCheck :: [ PredicateDeclaration ] -> Log.Logger ()
-predUniquenessCheck predDecls = do
+predDeclUniquenessCheck :: [ PredicateDeclaration ] -> Log.Logger ()
+predDeclUniquenessCheck predDecls = do
   let pSym = #_predSym . _atomType :: PredicateDeclaration -> PredicateSymbol
   let pSymEq a b = pSym a == pSym b
   let diff = deleteFirstsBy pSymEq predDecls (nubBy pSymEq predDecls)
@@ -166,8 +172,8 @@ predUniquenessCheck predDecls = do
       <> " is repeated."
 
 -- |Make sure there no repeated declarations for the same predicate.
-joinUniquenessCheck :: [ JoinDeclaration ] -> Log.Logger ()
-joinUniquenessCheck joinDecls = do
+joinDeclUniquenessCheck :: [ JoinDeclaration ] -> Log.Logger ()
+joinDeclUniquenessCheck joinDecls = do
   let joinEq a b = _joint a == _joint b
   let joinDiff = deleteFirstsBy joinEq joinDecls (nubBy joinEq joinDecls)
   case head joinDiff of
@@ -215,6 +221,28 @@ declarationExistenceCheck sentences decls = forM_ sentences $ \case
       Log.scold (Just span) $ "Predicate " <> pp pred <> " lacks a declaration."
 
   predsBeingDeclared = map (#_predSym . _atomType) decls
+
+-- |Checks if join predicates are arity zero and temporal with respect to
+-- at least two different predicates.
+checkJoinTemporality :: Metadata -> JoinDeclaration -> Log.Logger ()
+checkJoinTemporality metadata JoinDeclaration{..} = do
+  predInfo <- _joint `lookupM` metadata
+
+  unless (null $ _originalType predInfo) $
+    Log.scold (Just _span) $
+      "The join predicate " <> pp _joint <> " takes non-temporal parameters."
+
+  case _timings predInfo of
+    []             -> Log.scold (Just _span) $
+      "The join predicate " <> pp _joint <> " has no time predicates."
+      <> " It needs at least two."
+    [ Timing{..} ] -> Log.scold (Just _span) $
+      "The join predicate " <> pp _joint <> " has a single time predicate "
+      <> pp _predSym <> ". It needs at least two."
+    _              -> pure ()
+
+checkJoinUniqueness :: Metadata -> [ JoinDeclaration ] -> Log.Logger ()
+checkJoinUniqueness metadata joinDecls = _
 
 instance Pretty Metadata where
   pretty = PP.vcat . prettyC . M.toList
