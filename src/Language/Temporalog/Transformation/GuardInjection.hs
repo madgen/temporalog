@@ -34,7 +34,7 @@ type Injection = FreshT (StateT (R.Solution 'ABase) Logger)
 runFreshVar :: Clause 'ABase -> Fresh a -> a
 runFreshVar cl = runFresh (Just "C") reservedVars
   where
-  reservedVars = map _varName (variables cl)
+  reservedVars = map (\(Var v) -> v) (variables cl)
 
 runInjection :: Program 'ABase -> R.Solution 'ABase -> Injection a -> Logger (a, R.Solution 'ABase)
 runInjection pr sol action = second (<> sol) <$> (runSolT . runFreshPredSymT pr) action
@@ -83,19 +83,19 @@ injectGuards metadata (pr@Program{..}, sol) = runInjection pr sol $ do
 
   injectGuard :: Program 'ABase -> Injection [ Clause 'ABase ]
   injectGuard cluster@Program{clauses = topClause : _} = do
-    let (guardLits, bodyMinusGuard) = findGuard topClause
+    let (guardAtoms, auxAtom NE.:| bodyRest) = findGuard topClause
 
-    let auxSymMapping =
-         runFreshVar topClause (extractAuxSyms (NE.head bodyMinusGuard))
+    let auxSymMapping = runFreshVar topClause (extractAuxSyms auxAtom)
     let protoGuardConstants = fst <$> auxSymMapping
-    newBodyMinusGuard <- replaceAuxConstants auxSymMapping bodyMinusGuard
+    newAuxAtom <- replaceAuxConstants auxSymMapping auxAtom
+    let bodyMinusGuard = newAuxAtom NE.:| bodyRest
 
     guardSym <- freshPredSym
 
-    let protoGuardTerms = (nub . fmap TVar . join $ variables <$> guardLits)
-                       <> (TVar <$> map snd auxSymMapping)
+    let protoGuardTerms = (nub . fmap TVar . join $ variables <$> guardAtoms)
+                       <> (TSym <$> map fst auxSymMapping)
 
-    V.withSizedList protoGuardTerms $ \(guardTerms :: V.Vector n Term) -> do
+    V.withSizedList protoGuardTerms $ \(guardAtomTerms :: V.Vector n Term) -> do
 
       let guardPred = Predicate
             { annotation = PredABase $ span topClause
@@ -108,22 +108,24 @@ injectGuards metadata (pr@Program{..}, sol) = runInjection pr sol $ do
             { annotation = LitABase $ span topClause
             , polarity   = Positive
             , predicate  = guardPred
-            , terms      = guardTerms
+            , terms      = guardAtomTerms
             }
+
+      guardAtom <- replaceAuxConstants auxSymMapping guardHead
 
       let newTopClause = Clause
             { annotation = ClABase $ span topClause
             , head       = head topClause
-            , body       = NE.cons guardHead newBodyMinusGuard
+            , body       = guardAtom `NE.cons` bodyMinusGuard
             }
 
       let topHead = predicateBox $ head topClause
 
       newAuxClss <- (`execStateT` []) $
         enterAuxillary
-          guardHead cluster (unitSubst guardHead) topHead newBodyMinusGuard
+          guardAtom cluster (unitSubst guardAtom) topHead bodyMinusGuard
 
-      case NE.nonEmpty guardLits of
+      case NE.nonEmpty guardAtoms of
         Just guardBody -> do
           let guardClause = Clause
                 { annotation = ClABase $ span topClause
@@ -139,7 +141,7 @@ injectGuards metadata (pr@Program{..}, sol) = runInjection pr sol $ do
 
           case V.fromList protoGuardConstants :: Maybe (V.Vector n Sym) of
             Just guardConstants -> lift $
-              add $ R.Relation guardPred (T.fromList [ ])
+              add $ R.Relation guardPred (T.fromList [ guardConstants ])
             Nothing -> lift $ lift $
               scream (Just $ span topClause)
                 "Number of guard constants is different than predicate arity."
@@ -241,16 +243,17 @@ extractAuxSyms Literal{..} = nub <$> do
   (`traverse` syms) (\s -> (s,) . Var <$> fresh)
 
 replaceAuxConstants :: [ (Sym,Var) ]
-                    -> NE.NonEmpty (Literal 'ABase)
-                    -> Injection (NE.NonEmpty (Literal 'ABase))
-replaceAuxConstants varMap (Literal{..} NE.:| rest) = do
+                    -> Literal 'ABase
+                    -> Injection (Literal 'ABase)
+replaceAuxConstants varMap lit@Literal{..} = do
   newTerms <- (`traverse` terms) $ \case
     TSym sym -> maybe
-      (lift $ lift $ scream Nothing "Constant is not in the variable map.")
+      (lift $ lift $
+        scream (Just $ span lit) "Guard constant is not in the variable map.")
       (pure . TVar)
       (sym `lookup` varMap)
     t -> pure t
-  pure $ Literal{terms = newTerms,..} NE.:| rest
+  pure $ Literal{terms = newTerms,..}
 
 --------------------------------------------------------------------------------
 -- Variable substitutions
