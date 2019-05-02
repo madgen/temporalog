@@ -40,6 +40,9 @@ module Language.Temporalog.AST
   , AG.termType
   , AG.Var(..)
   , AG.Sym(..)
+  , AG.declarations, AG.sentences
+  , AG.queries, AG.clauses, AG.facts
+  , predicateDeclarations, joinDeclarations
   , AG.variables
   , freeVars
   , AG.operation
@@ -186,6 +189,16 @@ pattern SBodyJumpF span child timeSym time = AG.SUnOpF span (BodyJump timeSym ti
 -------------------------------------------------------------------------------
 -- Utility functions
 -------------------------------------------------------------------------------
+
+predicateDeclarations :: Program eleb -> [ PredicateDeclaration ]
+predicateDeclarations pr = (`mapMaybe` AG.declarations pr) $ \case
+  DeclPred predDecl -> Just predDecl
+  _                 -> Nothing
+
+joinDeclarations :: Program eleb -> [ JoinDeclaration ]
+joinDeclarations pr = (`mapMaybe` AG.declarations pr) $ \case
+  DeclJoin joinDecl -> Just joinDecl
+  _                 -> Nothing
 
 class AG.HasVariables a => HasFreeVariables a where
   freeVars :: a -> [ AG.Var ]

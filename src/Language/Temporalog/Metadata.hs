@@ -19,7 +19,7 @@ module Language.Temporalog.Metadata
 
 import Protolude hiding (diff, pred)
 
-import           Data.List (deleteFirstsBy, nubBy, partition)
+import           Data.List (partition)
 import qualified Data.Map.Strict as M
 
 import qualified Text.PrettyPrint as PP
@@ -79,25 +79,8 @@ addAuxillaryAtemporalPred predSym predType =
     }
 
 -- |Extract metadata from declarations
-processMetadata :: Program eleb -> Log.Logger Metadata
-processMetadata program = do
-  let (decls, sentences) =
-          bimap (AG._declaration <$>) (AG._sentence <$>)
-        . partition (\case {AG.StDeclaration{..} -> True; _ -> False})
-        . AG._statements
-        $ program
-
-  sentenceExistenceCheck sentences decls
-
-  let (predDecls, joinDecls) = partitionEithers $ (<$> decls) $ \case
-        DeclPred{..} -> Left _predDecl
-        DeclJoin{..} -> Right _joinDecl
-
-  predDeclUniquenessCheck predDecls
-  joinDeclUniquenessCheck joinDecls
-
-  declarationExistenceCheck sentences predDecls
-
+processMetadata :: [ PredicateDeclaration ] -> Log.Logger Metadata
+processMetadata predDecls = do
   let (temporalDecls, aTemporalDecls) =
         partition (isJust . _timePredSyms) predDecls
 
@@ -116,13 +99,7 @@ processMetadata program = do
   let deductiveMap = M.fromList  $  map processATemporal                 deductiveDecls
   temporalMap     <- M.fromList <$> traverse (processTemporal timingMap) temporalDecls
 
-  let metadata = timingMap `M.union` deductiveMap `M.union` temporalMap
-
-  traverse_ (checkJoinTemporality metadata) joinDecls
-
-  checkJoinUniqueness metadata joinDecls
-
-  pure metadata
+  pure $ timingMap `M.union` deductiveMap `M.union` temporalMap
   where
   processATemporal :: PredicateDeclaration -> (PredicateSymbol, PredicateInfo)
   processATemporal PredicateDeclaration{..} =
@@ -160,104 +137,6 @@ processMetadata program = do
            , _auxillary    = False
            }
          )
-
--- |Make sure there no repeated declarations for the same predicate.
-predDeclUniquenessCheck :: [ PredicateDeclaration ] -> Log.Logger ()
-predDeclUniquenessCheck predDecls = do
-  let pSym = #_predSym . _atomType :: PredicateDeclaration -> PredicateSymbol
-  let pSymEq a b = pSym a == pSym b
-  let diff = deleteFirstsBy pSymEq predDecls (nubBy pSymEq predDecls)
-  case head diff of
-    Nothing                             -> pure ()
-    Just pDecl@PredicateDeclaration{..} -> Log.scold (Just _span) $
-      "The declaration for predicate " <> pp (pSym pDecl)
-      <> " is repeated."
-
--- |Make sure there no repeated declarations for the same predicate.
-joinDeclUniquenessCheck :: [ JoinDeclaration ] -> Log.Logger ()
-joinDeclUniquenessCheck joinDecls = do
-  let joinEq a b = _joint a == _joint b
-  let joinDiff = deleteFirstsBy joinEq joinDecls (nubBy joinEq joinDecls)
-  case head joinDiff of
-    Nothing                  -> pure ()
-    Just JoinDeclaration{..} -> Log.whisper (Just _span) $
-        "The declaration for predicate " <> pp _joint <> " is repeated."
-
--- |Check all predicates appearing in declarations have corresponding clauses
--- defining them.
-sentenceExistenceCheck :: [ Sentence eleb ] -> [ Declaration ] -> Log.Logger ()
-sentenceExistenceCheck sentences decls = forM_ decls $ \case
-  DeclPred PredicateDeclaration{..} -> do
-    let declaredPredSym = #_predSym _atomType
-    checkExistence _span declaredPredSym
-
-    maybe (pure ()) (traverse_ (checkExistence _span)) _timePredSyms
-  DeclJoin JoinDeclaration{..} -> checkExistence _span _joint
-  where
-  checkExistence s pred =
-    unless (pred `elem` predsBeingDefined) $
-      Log.scold (Just s) $ "Predicate " <> pp pred <> " lacks a definition."
-
-  predsBeingDefined = (`mapMaybe` sentences) $ \case
-    AG.SQuery{}                                  -> Nothing
-    AG.SFact{_fact     = AG.Fact{_head   = sub}} -> Just $ name sub
-    AG.SClause{_clause = AG.Clause{_head = sub}} -> Just $ name sub
-
-name :: Subgoal (HOp eleb) term -> PredicateSymbol
-name AG.SAtom{..}          = #_predSym _atom
-name (SHeadJump _ sub _ _) = name sub
-
--- |Check all predicates defined have corresponding declarations.
-declarationExistenceCheck :: [ Sentence eleb ]
-                          -> [ PredicateDeclaration ]
-                          -> Log.Logger ()
-declarationExistenceCheck sentences decls = forM_ sentences $ \case
-  AG.SQuery{} -> pure ()
-  AG.SFact{AG._fact     = AG.Fact{_head   = sub,..}} ->
-    checkExistence _span (name sub)
-  AG.SClause{AG._clause = AG.Clause{_head = sub,..}} ->
-    checkExistence _span (name sub)
-  where
-  checkExistence span pred =
-    unless (pred `elem` predsBeingDeclared) $
-      Log.scold (Just span) $ "Predicate " <> pp pred <> " lacks a declaration."
-
-  predsBeingDeclared = map (#_predSym . _atomType) decls
-
--- |Checks if join predicates are arity zero and temporal with respect to
--- at least two different predicates.
-checkJoinTemporality :: Metadata -> JoinDeclaration -> Log.Logger ()
-checkJoinTemporality metadata JoinDeclaration{..} = do
-  predInfo <- _joint `lookupM` metadata
-
-  unless (null $ _originalType predInfo) $
-    Log.scold (Just _span) $
-      "The join predicate " <> pp _joint <> " takes non-temporal parameters."
-
-  case timingPreds predInfo of
-    []             -> Log.scold (Just _span) $
-      "The join predicate " <> pp _joint <> " has no time predicates."
-      <> " It needs at least two."
-    [ timingPred ] -> Log.scold (Just _span) $
-      "The join predicate " <> pp _joint <> " has a single time predicate "
-      <> pp timingPred <> ". It needs at least two."
-    _              -> pure ()
-
-checkJoinUniqueness :: Metadata -> [ JoinDeclaration ] -> Log.Logger ()
-checkJoinUniqueness metadata joinDecls = void $ foldrM go [] joinDecls
-  where
-  go JoinDeclaration{..} acc = do
-    predInfo <- _joint `lookupM` metadata
-    let timePredSyms = timingPreds predInfo
-
-    let isOverlapping as bs = as `isPrefixOf` bs || bs `isPrefixOf` as
-
-    when (any (timePredSyms `isOverlapping`) acc) $
-      Log.scold (Just _span) $
-        "Different joins cannot more general than one another."
-        <> " Intersection of their time predicates should be smaller than both."
-
-    pure $ timePredSyms : acc
 
 instance Pretty Metadata where
   pretty = PP.vcat . prettyC . M.toList

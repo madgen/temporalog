@@ -37,7 +37,7 @@ import           Language.Temporalog.AST
 import qualified Language.Temporalog.Metadata as MD
 import qualified Language.Temporalog.Parser.Lexer as Lexer
 import qualified Language.Temporalog.Parser.Parser as Parser
-import           Language.Temporalog.Transformation.Declaration (removeDecls)
+import           Language.Temporalog.Transformation.Declaration (removeDecls, checkDecls, checkJoins)
 import           Language.Temporalog.Transformation.GuardInjection (injectGuards)
 import           Language.Temporalog.Transformation.Temporal.Compiler (eliminateTemporal)
 import           Language.Temporalog.Transformation.Temporal.Elaborator (elaborate)
@@ -56,7 +56,8 @@ parse = Parser.programParser
 metadata :: Stage (MD.Metadata, Program 'Implicit)
 metadata file bs = do
   ast <- parse file bs
-  meta <- MD.processMetadata ast
+  checkDecls (AG.sentences ast) (AG.declarations ast)
+  meta <- MD.processMetadata (predicateDeclarations ast)
   pure (meta, ast)
 
 elaborated :: Stage (MD.Metadata, Program 'Explicit)
