@@ -138,16 +138,18 @@ processMetadata program = do
                   -> PredicateDeclaration
                   -> Log.Logger (PredicateSymbol, PredicateInfo)
   processTemporal metadata PredicateDeclaration{..} = do
-    tSyms <- maybe (Log.scream Nothing "Processing an atemporal predicate.") pure
+    tSyms <- maybe
+      (Log.scream (Just _span) "Processing an atemporal predicate.")
+      pure
       _timePredSyms
 
     predInfos <- maybe (Log.scream Nothing "Existence check is flawed.") pure $
       sequence $ (`M.lookup` metadata) <$> tSyms
 
     typs <- maybe
-      (Log.scream Nothing "Timing sanity checking is flawed. Zero arity." )
-      pure $
-      sequence $ head . _originalType <$> predInfos
+      (Log.scream (Just _span) "Timing sanity checking is flawed. Zero arity." )
+      pure
+      (sequence $ head . _originalType <$> predInfos)
 
     pure ( #_predSym _atomType
          , PredicateInfo
