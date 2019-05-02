@@ -75,7 +75,7 @@ token :-
 <0>       "?-"     { enterStartCodeAnd scB $ basic TQuery }
 <0>       ".decl"  { enterStartCodeAnd scD $ basic TDecl }
 <scB,scD> "."      { exitStartCodeAnd $ basic TDot }
-<scDA>    "."      { exitStartCodeAnd $ exitStartCodeAnd $ basic TDot }
+<scDT>    "."      { exitStartCodeAnd $ exitStartCodeAnd $ basic TDot }
 
 <0>        @fxSym { enterStartCodeAnd scB $ enterStartCodeAnd scA $ useInput TFxSym }
 <scB>      @fxSym { enterStartCodeAnd scA $ useInput TFxSym }
@@ -93,7 +93,7 @@ token :-
 <scDA>     "text" { basic TTTText }
 
 <scD>  "@"    { enterStartCodeAnd scDT $ basic TJump }
-<scDT> @fxSym { exitStartCodeAnd $ useInput TFxSym }
+<scDT> @fxSym { useInput TFxSym }
 
 <scB> "|"     { enterStartCodeAnd scBB $ basic TBind }
 <scBB> @var   { exitStartCodeAnd $ useInput TVariable }
