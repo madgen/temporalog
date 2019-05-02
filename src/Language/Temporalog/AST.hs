@@ -40,7 +40,7 @@ module Language.Temporalog.AST
   , AG.termType
   , AG.Var(..)
   , AG.Sym(..)
-  , AG.vars
+  , AG.variables
   , freeVars
   , AG.operation
   ) where
@@ -230,13 +230,13 @@ instance HasFreeVariables (AG.AtomicFormula t)
     varAlg (AG.SBinOpF _ _ vars1 vars2) = vars1 ++ vars2
 
 instance HasFreeVariables (AG.AtomicFormula AG.Term) where
-  freeVars = AG.vars
+  freeVars = AG.variables
 
 instance HasFreeVariables (AG.AtomicFormula AG.Var) where
-  freeVars = AG.vars
+  freeVars = AG.variables
 
 instance HasFreeVariables (AG.AtomicFormula AG.Sym) where
-  freeVars = AG.vars
+  freeVars = AG.variables
 
 -------------------------------------------------------------------------------
 -- Pretty printing related instances

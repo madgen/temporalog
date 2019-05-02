@@ -70,7 +70,7 @@ eliminateTemporal metadata program = do
                       , PredTypeEnv
                       )
   goSent sent = do
-    let sentVars = AG.vars sent
+    let sentVars = nub $ AG.variables sent
 
     timePredicates <- lift $ lift $ timePreds metadata sent
 
