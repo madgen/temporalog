@@ -178,7 +178,7 @@ sentenceExistenceCheck sentences decls = forM_ decls $ \case
     checkExistence _span declaredPredSym
 
     maybe (pure ()) (traverse_ (checkExistence _span)) _timePredSyms
-  DeclJoin{..} -> traverse_ (checkExistence _span) (_joint : _predSymsToJoin)
+  DeclJoin{..} -> checkExistence _span _joint
   where
   checkExistence span pred =
     unless (pred `elem` predsBeingDefined) $

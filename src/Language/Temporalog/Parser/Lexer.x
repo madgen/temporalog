@@ -71,14 +71,11 @@ token :-
 <scSP> @fxSym       { useInput TFxSym }
 <scSP> ">"          { exitStartCodeAnd $ basic TRightAngle }
 
-<scB>           ":-"    { basic TRule }
-<scA>           ":-"    { exitStartCodeAnd $ basic TRule }
-<0>             "?-"    { enterStartCodeAnd scB $ basic TQuery }
-<0>             ".pred" { enterStartCodeAnd scDP $ basic TDeclPred }
-<0>             ".join" { enterStartCodeAnd scDJ $ enterStartCodeAnd scDT $ basic TDeclJoin }
-<scDT>          "with"  { exitStartCodeAnd $ basic TWith }
-<scB,scDP,scDJ> "."     { exitStartCodeAnd $ basic TDot }
-<scDT>          "."     { exitStartCodeAnd $ exitStartCodeAnd $ basic TDot }
+<scB>           ":-" { basic TRule }
+<scA>           ":-" { exitStartCodeAnd $ basic TRule }
+<0>             "?-" { enterStartCodeAnd scB $ basic TQuery }
+<scB,scDP,scDJ> "."  { exitStartCodeAnd $ basic TDot }
+<scDT>          "."  { exitStartCodeAnd $ exitStartCodeAnd $ basic TDot }
 
 <0>        @fxSym { enterStartCodeAnd scB $ enterStartCodeAnd scA $ useInput TFxSym }
 <scB>      @fxSym { enterStartCodeAnd scA $ useInput TFxSym }
@@ -90,13 +87,17 @@ token :-
 <scA>      @wild  { basic TWildcard }
 <scA>      @int   { useInput (TInt . read . BS.unpack) }
 
-<scDP>     @fxSym { enterStartCodeAnd scDA $ useInput TFxSym }
-<scDA>     "int"  { basic TTTInt }
-<scDA>     "bool" { basic TTTBool }
-<scDA>     "text" { basic TTTText }
+<0>    ".pred" { enterStartCodeAnd scDP $ basic TDeclPred }
+<scDP> @fxSym  { enterStartCodeAnd scDA $ useInput TFxSym }
+<scDA> "int"   { basic TTTInt }
+<scDA> "bool"  { basic TTTBool }
+<scDA> "text"  { basic TTTText }
 
-<scDP> "@"         { enterStartCodeAnd scDT $ basic TJump }
-<scDT,scDJ> @fxSym { useInput TFxSym }
+<0>    ".join" { enterStartCodeAnd scDJ $ basic TDeclJoin }
+<scDJ> @fxSym  { useInput TFxSym }
+
+<scDP> "@"    { enterStartCodeAnd scDT $ basic TJump }
+<scDT> @fxSym { useInput TFxSym }
 
 <scB> "|"     { enterStartCodeAnd scBB $ basic TBind }
 <scBB> @var   { exitStartCodeAnd $ useInput TVariable }

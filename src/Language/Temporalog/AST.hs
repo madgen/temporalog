@@ -82,7 +82,6 @@ data Declaration =
   | DeclJoin
       { _span           :: SrcSpan
       , _joint          :: PredicateSymbol
-      , _predSymsToJoin :: [ PredicateSymbol ]
       }
 
 data ElaborationStatus = Explicit | Implicit
@@ -286,5 +285,4 @@ instance Pretty Declaration where
     ".pred" <+> pretty _atomType
       <+> "@" <+?> maybe empty (hcat . prettyC) _timePredSyms <> "."
   pretty DeclJoin{..} =
-    ".join" <+> (hcat . prettyC) _predSymsToJoin
-      <+> "with" <+> pretty _joint <> "."
+    ".join" <+> pretty _joint <> "."
