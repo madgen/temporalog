@@ -26,7 +26,7 @@ import qualified Text.PrettyPrint as PP
 
 import           Language.Exalog.Pretty.Helper
 import qualified Language.Exalog.Logger as Log
-import           Language.Exalog.SrcLoc (span, dummySpan)
+import           Language.Exalog.SrcLoc (dummySpan)
 
 import qualified Language.Vanillalog.Generic.AST as AG
 
@@ -186,9 +186,9 @@ sentenceExistenceCheck sentences decls = forM_ decls $ \case
     maybe (pure ()) (traverse_ (checkExistence _span)) _timePredSyms
   DeclJoin JoinDeclaration{..} -> checkExistence _span _joint
   where
-  checkExistence span pred =
+  checkExistence s pred =
     unless (pred `elem` predsBeingDefined) $
-      Log.scold (Just span) $ "Predicate " <> pp pred <> " lacks a definition."
+      Log.scold (Just s) $ "Predicate " <> pp pred <> " lacks a definition."
 
   predsBeingDefined = (`mapMaybe` sentences) $ \case
     AG.SQuery{}                                  -> Nothing
