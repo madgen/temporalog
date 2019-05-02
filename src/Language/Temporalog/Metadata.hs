@@ -234,17 +234,30 @@ checkJoinTemporality metadata JoinDeclaration{..} = do
     Log.scold (Just _span) $
       "The join predicate " <> pp _joint <> " takes non-temporal parameters."
 
-  case _timings predInfo of
+  case timingPreds predInfo of
     []             -> Log.scold (Just _span) $
       "The join predicate " <> pp _joint <> " has no time predicates."
       <> " It needs at least two."
-    [ Timing{..} ] -> Log.scold (Just _span) $
+    [ timingPred ] -> Log.scold (Just _span) $
       "The join predicate " <> pp _joint <> " has a single time predicate "
-      <> pp _predSym <> ". It needs at least two."
+      <> pp timingPred <> ". It needs at least two."
     _              -> pure ()
 
 checkJoinUniqueness :: Metadata -> [ JoinDeclaration ] -> Log.Logger ()
-checkJoinUniqueness metadata joinDecls = _
+checkJoinUniqueness metadata joinDecls = void $ foldrM go [] joinDecls
+  where
+  go JoinDeclaration{..} acc = do
+    predInfo <- _joint `lookupM` metadata
+    let timePredSyms = timingPreds predInfo
+
+    let isOverlapping as bs = as `isPrefixOf` bs || bs `isPrefixOf` as
+
+    when (any (timePredSyms `isOverlapping`) acc) $
+      Log.scold (Just _span) $
+        "Different joins cannot more general than one another."
+        <> " Intersection of their time predicates should be smaller than both."
+
+    pure $ timePredSyms : acc
 
 instance Pretty Metadata where
   pretty = PP.vcat . prettyC . M.toList
