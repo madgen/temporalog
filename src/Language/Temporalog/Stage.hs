@@ -5,6 +5,7 @@ module Language.Temporalog.Stage
   , parse
   , metadata
   , elaborated
+  , joinInjected
   , noDeclaration
   , typeChecked
   , namedQueries
@@ -42,6 +43,7 @@ import           Language.Temporalog.Transformation.GuardInjection (injectGuards
 import           Language.Temporalog.Transformation.Temporal.Compiler (eliminateTemporal)
 import           Language.Temporalog.Transformation.Temporal.Elaborator (elaborate)
 import           Language.Temporalog.Transformation.Temporal.Identities (applyTemporalIdentities)
+import           Language.Temporalog.Transformation.Temporal.JoinInjection (injectJoins)
 import           Language.Temporalog.Transformation.Temporal.Vanilla (toVanilla)
 import           Language.Temporalog.TypeChecker (typeCheck)
 
@@ -66,8 +68,14 @@ elaborated file bs = do
   ast'        <- elaborate meta ast
   pure (meta, ast')
 
+joinInjected :: Stage (MD.Metadata, Program 'Explicit)
+joinInjected file bs = do
+  (meta, ast) <- elaborated file bs
+  let ast'     = injectJoins _ meta ast
+  pure (meta, ast')
+
 noDeclaration :: Stage (MD.Metadata, AG.Program Void (HOp 'Explicit) (BOp 'Explicit 'Temporal))
-noDeclaration file bs = second removeDecls <$> elaborated file bs
+noDeclaration file bs = second removeDecls <$> joinInjected file bs
 
 noTemporal :: Stage (MD.Metadata, AG.Program Void (Const Void) (BOp 'Explicit 'ATemporal))
 noTemporal file bs = do
