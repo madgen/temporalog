@@ -19,7 +19,7 @@ module Language.Temporalog.Metadata
 
 import Protolude hiding (diff, pred)
 
-import           Data.List ((\\), nub, partition)
+import           Data.List (deleteFirstsBy, nubBy, partition)
 import qualified Data.Map.Strict as M
 
 import qualified Text.PrettyPrint as PP
@@ -87,22 +87,27 @@ processMetadata program = do
         . AG._statements
         $ program
 
-  uniquenessCheck decls
-
   sentenceExistenceCheck sentences decls
 
-  declarationExistenceCheck sentences decls
+  let (predDecls, joinDecls) = partitionEithers $ (<$> decls) $ \case
+        DeclPred{..} -> Left _predDecl
+        DeclJoin{..} -> Right _joinDecl
 
-  let (temporalDecls, aTemporalDecls) = partition (isJust . _timePredSyms) decls
+  predUniquenessCheck predDecls
+  joinUniquenessCheck joinDecls
+
+  declarationExistenceCheck sentences predDecls
+
+  let (temporalDecls, aTemporalDecls) =
+        partition (isJust . _timePredSyms) predDecls
 
   timePreds <- fmap join . (`traverse` temporalDecls) $ \case
-    DeclPred{..} ->
+    PredicateDeclaration{..} ->
       maybe
       (Log.scream (Just _span)
                   "Time predicate doesn't exist in a temporal declaration.")
       pure
       _timePredSyms
-    DeclJoin{..} -> pure []
 
   let (timingDecls, deductiveDecls) =
         partition ((`elem` timePreds) . #_predSym . _atomType) aTemporalDecls
@@ -113,8 +118,8 @@ processMetadata program = do
 
   pure $ timingMap `M.union` deductiveMap `M.union` temporalMap
   where
-  processATemporal :: Declaration -> (PredicateSymbol, PredicateInfo)
-  processATemporal DeclPred{..} =
+  processATemporal :: PredicateDeclaration -> (PredicateSymbol, PredicateInfo)
+  processATemporal PredicateDeclaration{..} =
     ( #_predSym _atomType
     , PredicateInfo
       { _originalType = _terms _atomType
@@ -122,12 +127,11 @@ processMetadata program = do
       , _auxillary    = False
       }
     )
-  processATemporal DeclJoin{..} = _
 
   processTemporal :: Metadata
-                  -> Declaration
+                  -> PredicateDeclaration
                   -> Log.Logger (PredicateSymbol, PredicateInfo)
-  processTemporal metadata DeclPred{..} = do
+  processTemporal metadata PredicateDeclaration{..} = do
     tSyms <- maybe (Log.scream Nothing "Processing an atemporal predicate.") pure
       _timePredSyms
 
@@ -148,50 +152,39 @@ processMetadata program = do
            , _auxillary    = False
            }
          )
-  processTemporal metadata DeclJoin{..} = _
 
 -- |Make sure there no repeated declarations for the same predicate.
-uniquenessCheck :: [ Declaration ] -> Log.Logger ()
-uniquenessCheck decls = do
-  let (declaredPredSyms, joints) = partitionEithers $ (<$> decls) $ \case
-        DeclPred{..} -> Left  $ #_predSym _atomType
-        DeclJoin{..} -> Right _joint
-  let predDiff = declaredPredSyms \\ nub declaredPredSyms :: [ PredicateSymbol ]
-  case head predDiff of
-    Nothing              -> pure ()
-    Just repeatedPred -> do
-      let repeatedDecls = (`filter` decls) $ \case
-            DeclPred{..} -> #_predSym _atomType == repeatedPred
-            DeclJoin{..} -> False
-      case head repeatedDecls  of
-        Just decl  -> Log.scold (Just $ span decl) $
-          "The declaration for predicate " <> pp repeatedPred <> " is repeated."
-        Nothing -> Log.scream Nothing $
-          "Could not find a declaration for " <> pp repeatedPred <> "."
+predUniquenessCheck :: [ PredicateDeclaration ] -> Log.Logger ()
+predUniquenessCheck predDecls = do
+  let pSym = #_predSym . _atomType :: PredicateDeclaration -> PredicateSymbol
+  let pSymEq a b = pSym a == pSym b
+  let diff = deleteFirstsBy pSymEq predDecls (nubBy pSymEq predDecls)
+  case head diff of
+    Nothing                             -> pure ()
+    Just pDecl@PredicateDeclaration{..} -> Log.scold (Just _span) $
+      "The declaration for predicate " <> pp (pSym pDecl)
+      <> " is repeated."
 
-  let joinDiff = joints \\ nub joints
+-- |Make sure there no repeated declarations for the same predicate.
+joinUniquenessCheck :: [ JoinDeclaration ] -> Log.Logger ()
+joinUniquenessCheck joinDecls = do
+  let joinEq a b = _joint a == _joint b
+  let joinDiff = deleteFirstsBy joinEq joinDecls (nubBy joinEq joinDecls)
   case head joinDiff of
-    Nothing           -> pure ()
-    Just repeatedPred -> do
-      let repeatedDecls = (`filter` decls) $ \case
-            DeclJoin{..} -> _joint == repeatedPred
-            DeclPred{..} -> False
-      case head repeatedDecls  of
-        Just decl  -> Log.whisper (Just $ span decl) $
-          "The declaration for predicate " <> pp repeatedPred <> " is repeated."
-        Nothing -> Log.scream Nothing $
-          "Could not find a declaration for " <> pp repeatedPred <> "."
+    Nothing                  -> pure ()
+    Just JoinDeclaration{..} -> Log.whisper (Just _span) $
+        "The declaration for predicate " <> pp _joint <> " is repeated."
 
 -- |Check all predicates appearing in declarations have corresponding clauses
 -- defining them.
 sentenceExistenceCheck :: [ Sentence eleb ] -> [ Declaration ] -> Log.Logger ()
 sentenceExistenceCheck sentences decls = forM_ decls $ \case
-  DeclPred{..} -> do
+  DeclPred PredicateDeclaration{..} -> do
     let declaredPredSym = #_predSym _atomType
     checkExistence _span declaredPredSym
 
     maybe (pure ()) (traverse_ (checkExistence _span)) _timePredSyms
-  DeclJoin{..} -> checkExistence _span _joint
+  DeclJoin JoinDeclaration{..} -> checkExistence _span _joint
   where
   checkExistence span pred =
     unless (pred `elem` predsBeingDefined) $
@@ -208,7 +201,7 @@ name (SHeadJump _ sub _ _) = name sub
 
 -- |Check all predicates defined have corresponding declarations.
 declarationExistenceCheck :: [ Sentence eleb ]
-                          -> [ Declaration ]
+                          -> [ PredicateDeclaration ]
                           -> Log.Logger ()
 declarationExistenceCheck sentences decls = forM_ sentences $ \case
   AG.SQuery{} -> pure ()

@@ -1,6 +1,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE PatternSynonyms #-}
@@ -13,6 +14,7 @@ module Language.Temporalog.AST
   ( Program
   , Statement
   , Declaration(..)
+  , PredicateDeclaration(..), JoinDeclaration(..)
   , Sentence
   , Query
   , Clause
@@ -74,15 +76,19 @@ type Fact eleb = AG.Fact (HOp eleb)
 type Subgoal = AG.Subgoal
 
 data Declaration =
-    DeclPred
-      { _span         :: SrcSpan
-      , _atomType     :: AG.AtomicFormula AG.TermType
-      , _timePredSyms :: Maybe [ PredicateSymbol ]
-      }
-  | DeclJoin
-      { _span           :: SrcSpan
-      , _joint          :: PredicateSymbol
-      }
+    DeclPred {_predDecl :: PredicateDeclaration}
+  | DeclJoin {_joinDecl :: JoinDeclaration}
+
+data PredicateDeclaration = PredicateDeclaration
+  { _span         :: SrcSpan
+  , _atomType     :: AG.AtomicFormula AG.TermType
+  , _timePredSyms :: Maybe [ PredicateSymbol ]
+  }
+
+data JoinDeclaration = JoinDeclaration
+  { _span           :: SrcSpan
+  , _joint          :: PredicateSymbol
+  }
 
 data ElaborationStatus = Explicit | Implicit
 
@@ -236,6 +242,14 @@ instance HasFreeVariables (AG.AtomicFormula AG.Sym) where
 -- Pretty printing related instances
 -------------------------------------------------------------------------------
 
+instance Spannable Declaration where
+  span DeclPred{..} = span _predDecl
+  span DeclJoin{..} = span _joinDecl
+
+-------------------------------------------------------------------------------
+-- Pretty printing related instances
+-------------------------------------------------------------------------------
+
 instance HasPrecedence (BOp eleb temp) where
   precedence AG.NoOp                 = 0
   precedence (AG.SomeOp Dogru)       = 0
@@ -281,8 +295,8 @@ instance Pretty (HOp eleb opKind) where
   pretty (HeadJump timeSym time) = pretty timeSym <+> pretty time <+> "@ "
 
 instance Pretty Declaration where
-  pretty DeclPred{..} =
+  pretty (DeclPred PredicateDeclaration{..}) =
     ".pred" <+> pretty _atomType
       <+> "@" <+?> maybe empty (hcat . prettyC) _timePredSyms <> "."
-  pretty DeclJoin{..} =
+  pretty (DeclJoin JoinDeclaration{..}) =
     ".join" <+> pretty _joint <> "."

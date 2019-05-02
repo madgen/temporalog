@@ -84,9 +84,9 @@ CLAUSES :: { [ Statement 'Implicit ] }
 |                     { [] }
 
 DECLARATION :: { Declaration }
-: pred ATOM_TYPE "."             { DeclPred (span ($1,$3)) $2 Nothing }
-| pred ATOM_TYPE "@" FX_SYMS "." { DeclPred (span ($1,$5)) $2 (Just $ map snd . reverse $ $4) }
-| join FX_SYM "."                { DeclJoin (span ($1,$3)) (snd $2) }
+: pred ATOM_TYPE "."             { DeclPred $ PredicateDeclaration (span ($1,$3)) $2 Nothing }
+| pred ATOM_TYPE "@" FX_SYMS "." { DeclPred $ PredicateDeclaration (span ($1,$5)) $2 (Just $ map snd . reverse $ $4) }
+| join FX_SYM "."                { DeclJoin $ JoinDeclaration      (span ($1,$3)) (snd $2) }
 
 CLAUSE :: { Sentence 'Implicit }
 : HEAD ":-" SUBGOAL "." { G.SClause $ G.Clause (span ($1,$4)) $1 $3 }
