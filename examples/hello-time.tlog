@@ -1,18 +1,18 @@
-.decl t(int,int).
+.pred t(int,int).
 t(1,2).
 
-.decl t2(int,int).
+.pred t2(int,int).
 t2(1,2).
 
-.decl q(int).
+.pred q(int).
 q(42).
 
-.decl r(bool,int) @ t2.
+.pred r(bool,int) @ t2.
 r(false,0) @ 15.
 r(true,Y) @ 1 :- q(Y).
 
-.decl p(int) @ t.
+.pred p(int) @ t.
 p(X) :- q(X), q(Y), q(24), AG (p(42) @ 0), E <t> [ p(X) U q(Y); r(Z,X) ].
 
-.decl s(int) @ t.
+.pred s(int) @ t.
 s(X) :- | Y p(X).

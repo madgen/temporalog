@@ -10,7 +10,7 @@
 %                        c.txt
 %                          5
 %
-.decl version(text,text).
+.pred version(text,text).
 version("a4afb5","0778df").
 version("0778df","376e06").
 version("376e06","288f0d").
@@ -18,7 +18,7 @@ version("0778df","9eb447").
 version("9eb447","288f0d").
 version("288f0d","288f0d").
 
-.decl clock(int,int).
+.pred clock(int,int).
 clock(1,2).
 clock(2,3).
 clock(3,4).
@@ -30,11 +30,11 @@ clock(8,9).
 clock(9,-1).
 clock(-1,-1).
 
-.decl recent(int).
+.pred recent(int).
 recent(6).
 recent(T') :- recent(T), clock(T,T'), ! clock(T,-1).
 
-.decl file(text) @ version clock.
+.pred file(text) @ version clock.
 file("a.txt") @ <version> "a4afb5" @ 1.
 file("c.txt") @ <version> "a4afb5" @ 1.
 file("c.txt") @ <version> "0778df" @ 2.
@@ -44,7 +44,7 @@ file("c.txt") @ <version> "9eb447" @ 5.
 file("a.txt") @ <version> "288f0d" @ 8.
 file("b.txt") @ <version> "288f0d" @ 8.
 
-.decl file_explicit(text,text,int).
+.pred file_explicit(text,text,int).
 file_explicit(File,Version,Time) :- file(File) @ <version> Version @ Time.
 
 ?- AG <version> file("a.txt").
@@ -54,13 +54,13 @@ file_explicit(File,Version,Time) :- file(File) @ <version> Version @ Time.
 ?- | <version> T (file(File) @ <version> T).
 ?- file(File), | <clock> T recent(T).
 
-.decl reverse_version(text,text).
+.pred reverse_version(text,text).
 reverse_version(H,H') :- version(H',H), ! version(H,H).
 reverse_version(H,H)  :- version(H,H'), ! version(_,H).
 
 ?- AG <reverse_version> | <reverse_version> I (file("c.txt") @ <version> I).
 
-.decl day(text) @ clock.
+.pred day(text) @ clock.
 day("Monday")    @ 1.
 day("Tuesday")   @ 2.
 day("Wednesday") @ 3.

@@ -1,18 +1,18 @@
-.decl v(int,int).
+.pred v(int,int).
 v(1,2).
 v(2,3).
 v(2,4).
 
-.decl v'(int,int).
+.pred v'(int,int).
 v'(T,T')  :- v(T,T').
 v'(T',T') :- v(T,T'), ! v(T',_).
 
-.decl q() @ v'.
+.pred q() @ v'.
 q() @ 1.
 q() @ 2.
 q() @ 3.
 
-.decl p() @ v'.
+.pred p() @ v'.
 p() @ 2.
 p() @ 4.
 

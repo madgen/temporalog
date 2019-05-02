@@ -1,4 +1,4 @@
-.decl v(int,int).
+.pred v(int,int).
 v(1,2).
 v(2,3).
 v(3,4).
@@ -6,11 +6,11 @@ v(4,7).
 v(3,5).
 v(5,6).
 
-.decl v'(int,int).
+.pred v'(int,int).
 v'(T,T') :- v(T,T').
 v'(T',T')  :- v(T,T'), ! v(T',_).
 
-.decl q(int) @ v'.
+.pred q(int) @ v'.
 q(1000) @ 1.
 q(1000) @ 2.
 q(1000) @ 3.
@@ -20,12 +20,12 @@ q(1000) @ 6.
 
 q(2000) @ 6.
 
-.decl pure1(text).
+.pred pure1(text).
 pure1("x").
 pure1("y").
 pure1("z").
 
-.decl pure2(text).
+.pred pure2(text).
 pure2("a").
 pure2("b").
 pure2("c").
