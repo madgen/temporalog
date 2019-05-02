@@ -153,18 +153,31 @@ processMetadata program = do
 -- |Make sure there no repeated declarations for the same predicate.
 uniquenessCheck :: [ Declaration ] -> Log.Logger ()
 uniquenessCheck decls = do
-  let predSyms = (`mapMaybe` decls) $ \case
-        DeclPred{..} -> Just $ #_predSym _atomType
-        DeclJoin{..} -> Nothing
-  let diff = predSyms \\ nub predSyms :: [ PredicateSymbol ]
-  case head diff of
+  let (declaredPredSyms, joints) = partitionEithers $ (<$> decls) $ \case
+        DeclPred{..} -> Left  $ #_predSym _atomType
+        DeclJoin{..} -> Right _joint
+  let predDiff = declaredPredSyms \\ nub declaredPredSyms :: [ PredicateSymbol ]
+  case head predDiff of
     Nothing              -> pure ()
     Just repeatedPred -> do
       let repeatedDecls = (`filter` decls) $ \case
             DeclPred{..} -> #_predSym _atomType == repeatedPred
             DeclJoin{..} -> False
-      case head . map span $ repeatedDecls  of
-        Just s  -> Log.scold (Just s) $
+      case head repeatedDecls  of
+        Just decl  -> Log.scold (Just $ span decl) $
+          "The declaration for predicate " <> pp repeatedPred <> " is repeated."
+        Nothing -> Log.scream Nothing $
+          "Could not find a declaration for " <> pp repeatedPred <> "."
+
+  let joinDiff = joints \\ nub joints
+  case head joinDiff of
+    Nothing           -> pure ()
+    Just repeatedPred -> do
+      let repeatedDecls = (`filter` decls) $ \case
+            DeclJoin{..} -> _joint == repeatedPred
+            DeclPred{..} -> False
+      case head repeatedDecls  of
+        Just decl  -> Log.whisper (Just $ span decl) $
           "The declaration for predicate " <> pp repeatedPred <> " is repeated."
         Nothing -> Log.scream Nothing $
           "Could not find a declaration for " <> pp repeatedPred <> "."
