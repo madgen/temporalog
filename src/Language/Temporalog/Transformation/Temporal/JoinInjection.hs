@@ -58,7 +58,8 @@ injectJoin mDeletedTimePred metadata phi =
   go meta tPreds =
     case tPreds `MD.lookupJoin` meta of
       Just (word, joint) -> do
-        psi <- go (word `MD.deleteJoin` meta) tPreds
+        let newMeta = word `MD.deleteJoin` meta
+        psi <- go newMeta tPreds
         case mDeletedTimePred of
           Just deletedTimePred | deletedTimePred `notElem` word -> pure psi
           _ -> pure $ SConj (span phi) joint psi
