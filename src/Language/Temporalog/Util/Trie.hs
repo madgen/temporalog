@@ -2,8 +2,9 @@ module Language.Temporalog.Util.Trie
   ( Trie
   , empty
   , insert
-  , lookup
+  , delete
   , flatten
+  , lookup
   ) where
 
 import Protolude hiding (empty)
@@ -50,6 +51,16 @@ lookup' (a : as) tNodes =
   case find (isMatchingNode a) tNodes of
     Just (TNode _ tNodes') -> first (a :) <$> lookup' as tNodes'
     _                      -> lookup' as tNodes
+
+-- |Delete an exact sequence from the trie
+delete :: Eq a => [ a ] -> Trie a b -> Trie a b
+delete as (Trie tNodes) = Trie $ delete' as tNodes
+
+delete' :: Eq a => [ a ] -> [ TNode a b ] -> [ TNode a b ]
+delete' []       tNodes = filter (\case {TNode{} -> True; _ -> False}) tNodes
+delete' (a : as) tNodes = (`mapMaybe` delete' as tNodes) $ \case
+  TNode a' [] | a == a' -> Nothing
+  t                     -> Just t
 
 isMatchingNode :: Eq a => a -> TNode a b -> Bool
 isMatchingNode _ TLeaf{}      = False
