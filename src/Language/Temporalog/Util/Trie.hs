@@ -62,9 +62,12 @@ delete as (Trie tNodes) = Trie $ delete' as tNodes
 
 delete' :: Eq a => [ a ] -> [ TNode a b ] -> [ TNode a b ]
 delete' []       tNodes = filter (\case {TNode{} -> True; _ -> False}) tNodes
-delete' (a : as) tNodes = (`mapMaybe` delete' as tNodes) $ \case
-  TNode a' [] | a == a' -> Nothing
-  t                     -> Just t
+delete' (a : as) tNodes = (`mapMaybe` tNodes) $ \case
+  TNode a' tNodes' | a == a' ->
+    case tNodes' of
+      [] -> Nothing
+      _  -> Just $ TNode a' (delete' as tNodes')
+  t -> Just t
 
 isMatchingNode :: Eq a => a -> TNode a b -> Bool
 isMatchingNode _ TLeaf{}      = False
