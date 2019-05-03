@@ -3,9 +3,14 @@ module Language.Temporalog.Util.Trie
   , empty
   , insert
   , lookup
+  , flatten
   ) where
 
 import Protolude hiding (empty)
+
+import qualified Text.PrettyPrint as PP
+
+import Language.Exalog.Pretty.Helper (Pretty(..))
 
 newtype Trie a b = Trie [ TNode a b ]
 
@@ -47,3 +52,18 @@ lookup' (a : as) tNodes =
 isMatchingNode :: Eq a => a -> TNode a b -> Bool
 isMatchingNode _ TLeaf{}      = False
 isMatchingNode a (TNode a' _) = a == a'
+
+flatten :: Trie a b -> [ ([ a ], b) ]
+flatten (Trie tNodes) = flatten' tNodes
+
+flatten' :: [ TNode a b ] -> [ ([ a ], b) ]
+flatten' tNodes = join $ (`map` tNodes) $ \case
+  TLeaf b         -> [ ([], b) ]
+  TNode a tNodes' -> first (a :) <$> flatten' tNodes'
+
+instance (Pretty a, Pretty b) => Pretty (Trie a b) where
+  pretty trie = PP.vcat $
+    (\(as,b) -> prettyKey as PP.<+> "==>" PP.<+> pretty b) <$> flatten trie
+    where
+    prettyKey :: Pretty a => [ a ] -> PP.Doc
+    prettyKey = PP.hcat . PP.punctuate ", " . map pretty
