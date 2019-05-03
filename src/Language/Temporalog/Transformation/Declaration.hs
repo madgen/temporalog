@@ -6,7 +6,6 @@
 module Language.Temporalog.Transformation.Declaration
   ( removeDecls
   , checkDecls
-  , checkJoins
   ) where
 
 import Protolude hiding (pred, diff)
@@ -103,44 +102,3 @@ declExistenceCheck sentences decls = forM_ sentences $ \case
 name :: Subgoal (HOp eleb) term -> PredicateSymbol
 name AG.SAtom{..}          = #_predSym _atom
 name (SHeadJump _ sub _ _) = name sub
-
-checkJoins :: MD.Metadata -> [ JoinDeclaration ] -> Logger ()
-checkJoins metadata joinDecls = do
-  traverse_ (checkJoinTemporality metadata) joinDecls
-
-  checkJoinUniqueness metadata joinDecls
-
--- |Checks if join predicates are arity zero and temporal with respect to
--- at least two different predicates.
-checkJoinTemporality :: MD.Metadata -> JoinDeclaration -> Logger ()
-checkJoinTemporality metadata JoinDeclaration{..} = do
-  predInfo <- _joint `MD.lookupM` metadata
-
-  unless (MD.arity predInfo - length (MD.timingPreds predInfo) == 0) $
-    scold (Just _span) $
-      "The join predicate " <> pp _joint <> " takes non-temporal parameters."
-
-  case MD.timingPreds predInfo of
-    []             -> scold (Just _span) $
-      "The join predicate " <> pp _joint <> " has no time predicates."
-      <> " It needs at least two."
-    [ timingPred ] -> scold (Just _span) $
-      "The join predicate " <> pp _joint <> " has a single time predicate "
-      <> pp timingPred <> ". It needs at least two."
-    _              -> pure ()
-
-checkJoinUniqueness :: MD.Metadata -> [ JoinDeclaration ] -> Logger ()
-checkJoinUniqueness metadata joinDecls = void $ foldrM go [] joinDecls
-  where
-  go JoinDeclaration{..} acc = do
-    predInfo <- _joint `MD.lookupM` metadata
-    let timePredSyms = MD.timingPreds predInfo
-
-    let isOverlapping as bs = as `isPrefixOf` bs || bs `isPrefixOf` as
-
-    when (any (timePredSyms `isOverlapping`) acc) $
-      scold (Just _span) $
-        "Different joins cannot more general than one another."
-        <> " Intersection of their time predicates should be smaller than both."
-
-    pure $ timePredSyms : acc

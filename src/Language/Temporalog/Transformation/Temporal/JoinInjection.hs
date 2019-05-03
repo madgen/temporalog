@@ -7,10 +7,5 @@ import Protolude
 import           Language.Temporalog.AST
 import qualified Language.Temporalog.Metadata as MD
 
-injectJoins :: [ JoinDeclaration ] -> MD.Metadata -> Program e -> Program e
+injectJoins :: MD.Metadata -> Program e -> Program e
 injectJoins = _
-
-data Join
-
-processJoinDecls :: [ JoinDeclaration ] -> [ Join ]
-processJoinDecls = _

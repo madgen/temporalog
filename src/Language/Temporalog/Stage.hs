@@ -38,7 +38,7 @@ import           Language.Temporalog.AST
 import qualified Language.Temporalog.Metadata as MD
 import qualified Language.Temporalog.Parser.Lexer as Lexer
 import qualified Language.Temporalog.Parser.Parser as Parser
-import           Language.Temporalog.Transformation.Declaration (removeDecls, checkDecls, checkJoins)
+import           Language.Temporalog.Transformation.Declaration (removeDecls, checkDecls)
 import           Language.Temporalog.Transformation.GuardInjection (injectGuards)
 import           Language.Temporalog.Transformation.Temporal.Compiler (eliminateTemporal)
 import           Language.Temporalog.Transformation.Temporal.Elaborator (elaborate)
@@ -59,7 +59,7 @@ metadata :: Stage (MD.Metadata, Program 'Implicit)
 metadata file bs = do
   ast <- parse file bs
   checkDecls (AG.sentences ast) (AG.declarations ast)
-  meta <- MD.processMetadata (predicateDeclarations ast)
+  meta <- MD.processMetadata ast
   pure (meta, ast)
 
 elaborated :: Stage (MD.Metadata, Program 'Explicit)
@@ -71,7 +71,7 @@ elaborated file bs = do
 joinInjected :: Stage (MD.Metadata, Program 'Explicit)
 joinInjected file bs = do
   (meta, ast) <- elaborated file bs
-  let ast'     = injectJoins _ meta ast
+  let ast' = injectJoins meta ast
   pure (meta, ast')
 
 noDeclaration :: Stage (MD.Metadata, AG.Program Void (HOp 'Explicit) (BOp 'Explicit 'Temporal))

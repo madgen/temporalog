@@ -30,6 +30,8 @@ import           Language.Exalog.SrcLoc (dummySpan)
 
 import qualified Language.Vanillalog.Generic.AST as AG
 
+import qualified Language.Temporalog.Util.Trie as T
+
 import Language.Temporalog.AST
 
 data Timing = Timing
@@ -42,6 +44,11 @@ data PredicateInfo = PredicateInfo
   , _timings      :: [ Timing ] -- Ordered by predicate symbol
   , _auxillary    :: Bool
   }
+
+type PredicateMetadata = M.Map PredicateSymbol PredicateInfo
+type JoinMetadata      = T.Trie PredicateSymbol (AtomicFormula Term)
+
+type Metadata = (PredicateMetadata, JoinMetadata)
 
 typ :: PredicateInfo -> [ TermType ]
 typ PredicateInfo{..} = _originalType <> map _type _timings
@@ -58,29 +65,47 @@ hasTiming PredicateInfo{..} = not . null $ _timings
 timingPreds :: PredicateInfo -> [ PredicateSymbol ]
 timingPreds PredicateInfo{..} = (\Timing{..} -> _predSym) <$> _timings
 
-type Metadata = M.Map PredicateSymbol PredicateInfo
-
 lookup :: PredicateSymbol -> Metadata -> Maybe PredicateInfo
-lookup = M.lookup
+lookup pSym = lookup' pSym . fst
+
+lookup' :: PredicateSymbol -> PredicateMetadata -> Maybe PredicateInfo
+lookup' = M.lookup
 
 lookupM :: PredicateSymbol -> Metadata -> Log.Logger PredicateInfo
-lookupM predSym metadata =
-  case predSym `lookup` metadata of
+lookupM pSym = lookupM' pSym . fst
+
+lookupM' :: PredicateSymbol -> PredicateMetadata -> Log.Logger PredicateInfo
+lookupM' predSym predMetadata =
+  case predSym `lookup'` predMetadata of
     Just predInfo -> pure predInfo
     Nothing -> Log.scream Nothing $ "No metadata for " <> pp predSym <> "."
 
 -- |Enter new predicate metadata
 addAuxillaryAtemporalPred :: PredicateSymbol -> [ TermType ] -> Metadata -> Metadata
-addAuxillaryAtemporalPred predSym predType =
+addAuxillaryAtemporalPred predSym predType = first $
   M.insert predSym $ PredicateInfo
     { _originalType = predType
     , _timings      = []
     , _auxillary    = True
     }
 
--- |Extract metadata from declarations
-processMetadata :: [ PredicateDeclaration ] -> Log.Logger Metadata
-processMetadata predDecls = do
+--------------------------------------------------------------------------------
+-- Metadata processing
+--------------------------------------------------------------------------------
+
+processMetadata :: Program eleb -> Log.Logger Metadata
+processMetadata pr = do
+  predMetadata <- processPredDecl (predicateDeclarations pr)
+  joinMetadata <- processJoinDecl predMetadata (joinDeclarations pr)
+  pure (predMetadata, joinMetadata)
+
+--------------------------------------------------------------------------------
+-- Predicate declaration processing
+--------------------------------------------------------------------------------
+
+-- |Extract metadata from predicate declarations
+processPredDecl :: [ PredicateDeclaration ] -> Log.Logger PredicateMetadata
+processPredDecl predDecls = do
   let (temporalDecls, aTemporalDecls) =
         partition (isJust . _timePredSyms) predDecls
 
@@ -111,7 +136,7 @@ processMetadata predDecls = do
       }
     )
 
-  processTemporal :: Metadata
+  processTemporal :: PredicateMetadata
                   -> PredicateDeclaration
                   -> Log.Logger (PredicateSymbol, PredicateInfo)
   processTemporal metadata PredicateDeclaration{..} = do
@@ -138,7 +163,78 @@ processMetadata predDecls = do
            }
          )
 
+--------------------------------------------------------------------------------
+-- Join declaration processing
+--------------------------------------------------------------------------------
+
+processJoinDecl :: PredicateMetadata
+                -> [ JoinDeclaration ]
+                -> Log.Logger JoinMetadata
+processJoinDecl predMetadata joinDecls = do
+  checkJoins predMetadata joinDecls
+  foldrM insertJoin T.empty joinDecls
+  where
+  insertJoin JoinDeclaration{..} trie = do
+    tPreds <- timingPreds <$> _joint `lookupM'` predMetadata
+    pure $ T.insert tPreds (jointAtom _joint) trie
+
+  jointAtom :: PredicateSymbol -> AtomicFormula Term
+  jointAtom pSym = AtomicFormula
+    { _span    = dummySpan
+    , _predSym = pSym
+    , _terms   = []
+    }
+
+checkJoins :: PredicateMetadata -> [ JoinDeclaration ] -> Log.Logger ()
+checkJoins metadata joinDecls = do
+  traverse_ (checkJoinTemporality metadata) joinDecls
+
+  checkJoinUniqueness metadata joinDecls
+
+-- |Checks if join predicates are arity zero and temporal with respect to
+-- at least two different predicates.
+checkJoinTemporality :: PredicateMetadata -> JoinDeclaration -> Log.Logger ()
+checkJoinTemporality metadata JoinDeclaration{..} = do
+  predInfo <- _joint `lookupM'` metadata
+
+  unless (arity predInfo - length (timingPreds predInfo) == 0) $
+    Log.scold (Just _span) $
+      "The join predicate " <> pp _joint <> " takes non-temporal parameters."
+
+  case timingPreds predInfo of
+    []             -> Log.scold (Just _span) $
+      "The join predicate " <> pp _joint <> " has no time predicates."
+      <> " It needs at least two."
+    [ timingPred ] -> Log.scold (Just _span) $
+      "The join predicate " <> pp _joint <> " has a single time predicate "
+      <> pp timingPred <> ". It needs at least two."
+    _              -> pure ()
+
+checkJoinUniqueness :: PredicateMetadata -> [ JoinDeclaration ] -> Log.Logger ()
+checkJoinUniqueness metadata joinDecls = void $ foldrM go [] joinDecls
+  where
+  go JoinDeclaration{..} acc = do
+    predInfo <- _joint `lookupM'` metadata
+    let timePredSyms = timingPreds predInfo
+
+    let isOverlapping as bs = as `isPrefixOf` bs || bs `isPrefixOf` as
+
+    when (any (timePredSyms `isOverlapping`) acc) $
+      Log.scold (Just _span) $
+        "Different joins cannot more general than one another."
+        <> " Intersection of their time predicates should be smaller than both."
+
+    pure $ timePredSyms : acc
+
+--------------------------------------------------------------------------------
+-- Pretty instances
+--------------------------------------------------------------------------------
+
 instance Pretty Metadata where
+  pretty (predMetadata, joinMetadata) =
+    pretty predMetadata PP.$+$ pretty joinMetadata
+
+instance Pretty PredicateMetadata where
   pretty = PP.vcat . prettyC . M.toList
 
 instance Pretty (PredicateSymbol, PredicateInfo) where
