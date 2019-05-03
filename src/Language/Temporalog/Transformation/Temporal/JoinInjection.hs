@@ -51,7 +51,7 @@ injectJoins metadata AG.Program{..} = do
              -> Logger (Subgoal (BOp 'Explicit 'Temporal) Term)
   injectJoin meta phi = do
     tPreds <- timePreds meta phi
-    case tPreds `MD.lookupJoin` metadata of
+    case tPreds `MD.lookupJoin` meta of
       Just (word, joint) -> do
         psi <- injectJoin (word `MD.deleteJoin` meta) phi
         pure $ SConj (span phi) joint psi
