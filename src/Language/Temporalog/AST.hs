@@ -308,8 +308,13 @@ instance Pretty (HOp eleb opKind) where
   pretty (HeadJump timeSym time) = pretty timeSym <+> pretty time <+> "@ "
 
 instance Pretty Declaration where
-  pretty (DeclPred PredicateDeclaration{..}) =
+  pretty (DeclPred predDecl) = pretty predDecl
+  pretty (DeclJoin joinDecl) = pretty joinDecl
+
+instance Pretty PredicateDeclaration where
+  pretty PredicateDeclaration{..} =
     ".pred" <+> pretty _atomType
       <+> "@" <+?> maybe empty (hcat . prettyC) _timePredSyms <> "."
-  pretty (DeclJoin JoinDeclaration{..}) =
-    ".join" <+> pretty _joint <> "."
+
+instance Pretty JoinDeclaration where
+  pretty JoinDeclaration{..} = ".join" <+> pretty _joint <> "."
