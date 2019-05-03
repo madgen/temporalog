@@ -15,6 +15,7 @@ module Language.Temporalog.Metadata
   , isAuxillary
   , timingPreds
   , hasTiming
+  , lookupJoin
   ) where
 
 import Protolude hiding (diff, pred)
@@ -79,6 +80,9 @@ lookupM' predSym predMetadata =
   case predSym `lookup'` predMetadata of
     Just predInfo -> pure predInfo
     Nothing -> Log.scream Nothing $ "No metadata for " <> pp predSym <> "."
+
+lookupJoin :: [ PredicateSymbol ] -> Metadata -> Maybe (AtomicFormula Term)
+lookupJoin key (_,joinTrie) = key `T.lookup` joinTrie
 
 -- |Enter new predicate metadata
 addAuxillaryAtemporalPred :: PredicateSymbol -> [ TermType ] -> Metadata -> Metadata
