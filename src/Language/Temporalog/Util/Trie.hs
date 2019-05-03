@@ -37,6 +37,8 @@ insert' (a : as) b tNodes =
       TNode a' tNodes' | a == a' -> TNode a' (insert' as b tNodes')
       t -> t
 
+-- |Trie lookup that ignores symbols when stuck.
+-- Hence, it looks up the longest sequence.
 lookup :: Eq a => [ a ] -> Trie a b -> Maybe b
 lookup as (Trie tNodes) = lookup' as tNodes
 
@@ -47,7 +49,7 @@ lookup' [] tNodes = do
 lookup' (a : as) tNodes =
   case find (isMatchingNode a) tNodes of
     Just (TNode _ tNodes') -> lookup' as tNodes'
-    _                      -> Nothing
+    _                      -> lookup' as tNodes
 
 isMatchingNode :: Eq a => a -> TNode a b -> Bool
 isMatchingNode _ TLeaf{}      = False
