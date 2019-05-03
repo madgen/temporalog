@@ -37,22 +37,28 @@ injectJoins metadata AG.Program{..} = do
     newBody <- goBody _body
     pure $ AG.SQuery AG.Query{_body = newBody, ..}
 
-  goBody = anaM joinCoalg >=> injectJoin metadata
+  goBody = anaM joinCoalg >=> injectJoin Nothing metadata
 
   joinCoalg :: Subgoal (BOp 'Explicit 'Temporal) Term
             -> Logger (Base (Subgoal (BOp 'Explicit 'Temporal) Term)
                             (Subgoal (BOp 'Explicit 'Temporal) Term))
-  joinCoalg (SBodyJump sp phi tSym time) =
-    (\rho -> SBodyJumpF sp rho tSym time) <$> injectJoin metadata phi
+  joinCoalg (SBodyJump sp phi tSym@(Exp tPred) time) = do
+    rho <- injectJoin (Just tPred) metadata phi
+    pure $ SBodyJumpF sp rho tSym time
   joinCoalg s = pure $ project s
 
-  injectJoin :: MD.Metadata
-             -> Subgoal (BOp 'Explicit 'Temporal) Term
-             -> Logger (Subgoal (BOp 'Explicit 'Temporal) Term)
-  injectJoin meta phi = do
+injectJoin :: Maybe PredicateSymbol
+           -> MD.Metadata
+           -> Subgoal (BOp 'Explicit 'Temporal) Term
+           -> Logger (Subgoal (BOp 'Explicit 'Temporal) Term)
+injectJoin mDeletedTimePred = go
+  where
+  go meta phi = do
     tPreds <- timePreds meta phi
     case tPreds `MD.lookupJoin` meta of
       Just (word, joint) -> do
-        psi <- injectJoin (word `MD.deleteJoin` meta) phi
-        pure $ SConj (span phi) joint psi
+        psi <- go (word `MD.deleteJoin` meta) phi
+        case mDeletedTimePred of
+          Just deletedTimePred | deletedTimePred `notElem` word -> pure psi
+          _ -> pure $ SConj (span phi) joint psi
       Nothing -> pure phi
