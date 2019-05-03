@@ -81,11 +81,16 @@ lookupM' predSym predMetadata =
     Just predInfo -> pure predInfo
     Nothing -> Log.scream Nothing $ "No metadata for " <> pp predSym <> "."
 
-lookupJoin :: [ PredicateSymbol ] -> Metadata -> Maybe (AtomicFormula Term)
+lookupJoin :: [ PredicateSymbol ]
+           -> Metadata
+           -> Maybe ([ PredicateSymbol ], AtomicFormula Term)
 lookupJoin key (_,joinTrie) = key `T.lookup` joinTrie
 
 -- |Enter new predicate metadata
-addAuxillaryAtemporalPred :: PredicateSymbol -> [ TermType ] -> Metadata -> Metadata
+addAuxillaryAtemporalPred :: PredicateSymbol
+                          -> [ TermType ]
+                          -> Metadata
+                          -> Metadata
 addAuxillaryAtemporalPred predSym predType = first $
   M.insert predSym $ PredicateInfo
     { _originalType = predType
