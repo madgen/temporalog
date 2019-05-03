@@ -6,6 +6,7 @@
 
 module Language.Temporalog.Transformation.Temporal.Compiler
   ( eliminateTemporal
+  , HasTimePredicates(..)
   ) where
 
 import Protolude

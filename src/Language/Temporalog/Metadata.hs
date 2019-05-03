@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -16,6 +17,7 @@ module Language.Temporalog.Metadata
   , timingPreds
   , hasTiming
   , lookupJoin
+  , deleteJoin
   ) where
 
 import Protolude hiding (diff, pred)
@@ -47,7 +49,7 @@ data PredicateInfo = PredicateInfo
   }
 
 type PredicateMetadata = M.Map PredicateSymbol PredicateInfo
-type JoinMetadata      = T.Trie PredicateSymbol (AtomicFormula Term)
+type JoinMetadata      = T.Trie PredicateSymbol (Subgoal (BOp 'Explicit 'Temporal) Term)
 
 type Metadata = (PredicateMetadata, JoinMetadata)
 
@@ -83,8 +85,11 @@ lookupM' predSym predMetadata =
 
 lookupJoin :: [ PredicateSymbol ]
            -> Metadata
-           -> Maybe ([ PredicateSymbol ], AtomicFormula Term)
+           -> Maybe ([ PredicateSymbol ], Subgoal (BOp 'Explicit 'Temporal) Term)
 lookupJoin key (_,joinTrie) = key `T.lookup` joinTrie
+
+deleteJoin :: [ PredicateSymbol ] -> Metadata -> Metadata
+deleteJoin key = second (T.delete key)
 
 -- |Enter new predicate metadata
 addAuxillaryAtemporalPred :: PredicateSymbol
@@ -187,8 +192,8 @@ processJoinDecl predMetadata joinDecls = do
     tPreds <- timingPreds <$> _joint `lookupM'` predMetadata
     pure $ T.insert tPreds (jointAtom _joint) trie
 
-  jointAtom :: PredicateSymbol -> AtomicFormula Term
-  jointAtom pSym = AtomicFormula
+  jointAtom :: PredicateSymbol -> Subgoal (BOp 'Explicit temp) Term
+  jointAtom pSym = SAtom dummySpan $ AtomicFormula
     { _span    = dummySpan
     , _predSym = pSym
     , _terms   = []
