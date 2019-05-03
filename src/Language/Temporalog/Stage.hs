@@ -68,14 +68,14 @@ elaborated file bs = do
   ast'        <- elaborate meta ast
   pure (meta, ast')
 
-joinInjected :: Stage (MD.Metadata, Program 'Explicit)
+noDeclaration :: Stage (MD.Metadata, AG.Program Void (HOp 'Explicit) (BOp 'Explicit 'Temporal))
+noDeclaration file bs = second removeDecls <$> elaborated file bs
+
+joinInjected :: Stage (MD.Metadata, AG.Program Void (HOp 'Explicit) (BOp 'Explicit 'Temporal))
 joinInjected file bs = do
-  (meta, ast) <- elaborated file bs
+  (meta, ast) <- noDeclaration file bs
   let ast' = injectJoins meta ast
   pure (meta, ast')
-
-noDeclaration :: Stage (MD.Metadata, AG.Program Void (HOp 'Explicit) (BOp 'Explicit 'Temporal))
-noDeclaration file bs = second removeDecls <$> joinInjected file bs
 
 noTemporal :: Stage (MD.Metadata, AG.Program Void (Const Void) (BOp 'Explicit 'ATemporal))
 noTemporal file bs = do

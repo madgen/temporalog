@@ -26,8 +26,8 @@ data Stage =
   | TemporalParse
   | TemporalMeta
   | TemporalElaborate
-  | TemporalJoin
   | TemporalNoDecl
+  | TemporalJoin
   | TemporalType
   | TemporalNoTime
   | Vanilla
@@ -42,8 +42,8 @@ stageParser =
  <|> stageFlag' TemporalParse     "parse"     "Parse"
  <|> stageFlag' TemporalMeta      "metadata"  "Dump metadata"
  <|> stageFlag' TemporalElaborate "elaborate" "Time elaboration"
- <|> stageFlag' TemporalJoin      "join"      "Inject joins"
  <|> stageFlag' TemporalNoDecl    "no-decl"   "Remove declarations"
+ <|> stageFlag' TemporalJoin      "join"      "Inject joins"
  <|> stageFlag' TemporalNoTime    "no-time"   "Eliminate temporal ops"
  <|> stageFlag' TemporalType      "typecheck" "Type check"
  <|> stageFlag' Vanilla           "vanilla"   "Vanilla"
@@ -71,9 +71,9 @@ prettyPrint PPOptions{..} = do
       putStrLn . pp
     TemporalElaborate -> succeedOrDie (fmap snd <$> Stage.elaborated file) bs $
       putStrLn . pp
-    TemporalJoin      -> succeedOrDie (fmap snd <$> Stage.joinInjected file) bs $
-      putStrLn . pp
     TemporalNoDecl    -> succeedOrDie (fmap snd <$> Stage.noDeclaration file) bs $
+      putStrLn . pp
+    TemporalJoin      -> succeedOrDie (fmap snd <$> Stage.joinInjected file) bs $
       putStrLn . pp
     TemporalNoTime    -> succeedOrDie (fmap snd <$> Stage.noTemporal file) bs $
       putStrLn . pp
