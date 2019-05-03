@@ -79,7 +79,7 @@ joinInjected file bs = do
 
 noTemporal :: Stage (MD.Metadata, AG.Program Void (Const Void) (BOp 'Explicit 'ATemporal))
 noTemporal file bs = do
-  (meta, ast) <- noDeclaration file bs
+  (meta, ast) <- joinInjected file bs
   eliminateTemporal meta (applyTemporalIdentities ast)
 
 vanilla :: Stage (MD.Metadata, VA.Program)
