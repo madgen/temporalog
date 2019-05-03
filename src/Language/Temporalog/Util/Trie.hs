@@ -28,9 +28,13 @@ insert :: Eq a => [ a ] -> b -> Trie a b -> Trie a b
 insert as b (Trie tNode) = Trie $ insert' as b tNode
 
 insert' :: Eq a => [ a ] -> b -> [ TNode a b ] -> [ TNode a b ]
-insert' [] b tNodes = (`map` tNodes) $ \case
-  TLeaf{} -> TLeaf b
-  tNode   -> tNode
+insert' [] b tNodes
+  -- Either there are no leaves and we add one
+  | all (\case {TNode{} -> True; _ -> False}) tNodes = [ TLeaf b ]
+  -- Or there is one and we override it
+  | otherwise = (`map` tNodes) $ \case
+    TLeaf{} -> TLeaf b
+    tNode   -> tNode
 insert' (a : as) b tNodes =
   case find (isMatchingNode a) tNodes of
     Nothing -> TNode a (insert' as b []) : tNodes
