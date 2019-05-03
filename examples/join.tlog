@@ -1,0 +1,107 @@
+.pred alph(text,text).
+alph("a","b").
+alph("b","c").
+alph("c","d").
+alph("e","f").
+alph("f","g").
+alph("g","h").
+alph("h","i").
+alph("i","j").
+
+.pred arabic(int,int).
+arabic(1,2).
+arabic(2,3).
+arabic(3,4).
+arabic(4,5).
+arabic(5,6).
+arabic(6,7).
+arabic(7,8).
+arabic(8,9).
+
+.pred square(int) @ arabic.
+square(1)  @ 1.
+square(4)  @ 2.
+square(9)  @ 3.
+square(16) @ 4.
+square(25) @ 5.
+square(36) @ 6.
+square(49) @ 7.
+
+.pred uppercase(text) @ alph.
+uppercase("A") @ "a".
+uppercase("B") @ "b".
+uppercase("C") @ "c".
+uppercase("D") @ "d".
+uppercase("E") @ "e".
+uppercase("F") @ "f".
+uppercase("G") @ "g".
+uppercase("H") @ "h".
+uppercase("I") @ "i".
+uppercase("J") @ "j".
+uppercase("K") @ "k".
+
+.pred ord() @ alph arabic.
+ord() @ <alph> "a" @ 1.
+ord() @ <alph> "b" @ 2.
+ord() @ <alph> "c" @ 3.
+ord() @ <alph> "d" @ 4.
+ord() @ <alph> "e" @ 5.
+ord() @ <alph> "f" @ 6.
+ord() @ <alph> "g" @ 7.
+ord() @ <alph> "h" @ 8.
+ord() @ <alph> "i" @ 9.
+ord() @ <alph> "j" @ 10.
+
+.join ord.
+
+?- uppercase(X), square(Y).
+% Expected: ord(), uppercase(X), square(Y).
+
+.pred src(int).
+src(1).
+src(2).
+src(3).
+
+?- uppercase(X), src(Y), (square(Z) @ Y).
+% Expected: uppercase(X), src(Y), (square(Z) @ Y)
+
+?- src(Y), (uppercase(X), square(Z) @ <arabic> Y).
+% Expected: src(Y), (ord(), uppercase(X), square(Z) @ <arabic> Y)
+
+?- square(W), src(Y), (uppercase(X), square(Z) @ <arabic> Y).
+% Expected: ord(), square(W), src(Y), (ord(), uppercase(X), square(Z) @ <arabic> Y).
+
+.pred roman(text,text).
+roman("I","II").
+roman("II","III").
+roman("III","IV").
+roman("IV","V").
+roman("V","VI").
+roman("VI","VII").
+roman("VII","VIII").
+roman("VIII","IX").
+roman("IX","X").
+
+.pred modernise() @ arabic roman.
+modernise() @ <arabic> 1 @ "I".
+modernise() @ <arabic> 2 @ "II".
+modernise() @ <arabic> 3 @ "III".
+modernise() @ <arabic> 4 @ "IV".
+modernise() @ <arabic> 5 @ "V".
+modernise() @ <arabic> 6 @ "VI".
+modernise() @ <arabic> 7 @ "VII".
+modernise() @ <arabic> 8 @ "VIII".
+modernise() @ <arabic> 9 @ "IX".
+modernise() @ <arabic> 10 @ "X".
+
+.pred roman_lower(text) @ roman.
+roman_lower("i")   @ "I".
+roman_lower("ii")  @ "II".
+roman_lower("iii") @ "III".
+roman_lower("iv")  @ "IV".
+roman_lower("v")   @ "V".
+
+.join modernise.
+
+?- roman_lower(Q), square(W), src(Y), (uppercase(X), square(Z) @ <arabic> Y).
+% Expected: modernise(), ord(), roman_lower(Q), square(W), src(Y), (ord(), uppercase(X), square(Z) @ <arabic> Y).
