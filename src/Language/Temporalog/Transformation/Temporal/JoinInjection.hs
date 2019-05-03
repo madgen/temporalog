@@ -37,7 +37,7 @@ injectJoins metadata AG.Program{..} = do
     newBody <- goBody _body
     pure $ AG.SQuery AG.Query{_body = newBody, ..}
 
-  goBody = anaM joinCoalg
+  goBody = anaM joinCoalg >=> injectJoin metadata
 
   joinCoalg :: Subgoal (BOp 'Explicit 'Temporal) Term
             -> Logger (Base (Subgoal (BOp 'Explicit 'Temporal) Term)
