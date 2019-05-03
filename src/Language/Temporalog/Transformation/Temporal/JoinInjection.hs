@@ -7,6 +7,7 @@ module Language.Temporalog.Transformation.Temporal.JoinInjection
 
 import Protolude
 
+import Data.List (nub)
 import Data.Functor.Foldable (Base, project)
 import Data.Functor.Foldable.Exotic (anaM)
 
@@ -51,13 +52,13 @@ injectJoin :: Maybe PredicateSymbol
            -> MD.Metadata
            -> Subgoal (BOp 'Explicit 'Temporal) Term
            -> Logger (Subgoal (BOp 'Explicit 'Temporal) Term)
-injectJoin mDeletedTimePred = go
+injectJoin mDeletedTimePred metadata phi =
+  (nub . sort <$> timePreds metadata phi) >>= go metadata
   where
-  go meta phi = do
-    tPreds <- timePreds meta phi
+  go meta tPreds =
     case tPreds `MD.lookupJoin` meta of
       Just (word, joint) -> do
-        psi <- go (word `MD.deleteJoin` meta) phi
+        psi <- go (word `MD.deleteJoin` meta) tPreds
         case mDeletedTimePred of
           Just deletedTimePred | deletedTimePred `notElem` word -> pure psi
           _ -> pure $ SConj (span phi) joint psi
