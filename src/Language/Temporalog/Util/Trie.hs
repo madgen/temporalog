@@ -13,11 +13,12 @@ import qualified Text.PrettyPrint as PP
 
 import Language.Exalog.Pretty.Helper (Pretty(..))
 
-newtype Trie a b = Trie [ TNode a b ]
+newtype Trie a b = Trie [ TNode a b ] deriving (Show)
 
 data TNode a b =
     TNode a [ TNode a b ]
   | TLeaf b
+  deriving (Show)
 
 empty :: Trie a b
 empty = Trie [ ]
@@ -66,7 +67,9 @@ delete' (a : as) tNodes = (`mapMaybe` tNodes) $ \case
   TNode a' tNodes' | a == a' ->
     case tNodes' of
       [] -> Nothing
-      _  -> Just $ TNode a' (delete' as tNodes')
+      _  -> case delete' as tNodes' of
+              []       -> Nothing
+              tNodes'' -> Just $ TNode a' tNodes''
   t -> Just t
 
 isMatchingNode :: Eq a => a -> TNode a b -> Bool
