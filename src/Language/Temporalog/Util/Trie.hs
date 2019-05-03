@@ -25,7 +25,7 @@ empty = Trie [ ]
 -- |Inserts a value at the end of a word. If there is a value at that
 -- point, override.
 insert :: Eq a => [ a ] -> b -> Trie a b -> Trie a b
-insert as bs (Trie tNode) = Trie $ insert' as bs tNode
+insert as b (Trie tNode) = Trie $ insert' as b tNode
 
 insert' :: Eq a => [ a ] -> b -> [ TNode a b ] -> [ TNode a b ]
 insert' [] b tNodes = (`map` tNodes) $ \case
