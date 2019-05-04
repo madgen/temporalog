@@ -30,35 +30,48 @@ clock(8,9).
 clock(9,-1).
 clock(-1,-1).
 
+.pred timestamp() @ version clock.
+.join timestamp.
+timestamp() @ <version> "a4afb5" @ 1.
+timestamp() @ <version> "0778df" @ 2.
+timestamp() @ <version> "9eb447" @ 5.
+timestamp() @ <version> "376e06" @ 7.
+timestamp() @ <version> "288f0d" @ 8.
+
 .pred recent(int).
 recent(6).
 recent(T') :- recent(T), clock(T,T'), ! clock(T,-1).
 
-.pred file(text) @ version clock.
-file("a.txt") @ <version> "a4afb5" @ 1.
-file("c.txt") @ <version> "a4afb5" @ 1.
-file("c.txt") @ <version> "0778df" @ 2.
-file("a.txt") @ <version> "376e06" @ 7.
-file("b.txt") @ <version> "9eb447" @ 5.
-file("c.txt") @ <version> "9eb447" @ 5.
-file("a.txt") @ <version> "288f0d" @ 8.
-file("b.txt") @ <version> "288f0d" @ 8.
+.pred file(text) @ version.
+file("a.txt") @ "a4afb5".
+file("c.txt") @ "a4afb5".
+file("c.txt") @ "0778df".
+file("a.txt") @ "376e06".
+file("b.txt") @ "9eb447".
+file("c.txt") @ "9eb447".
+file("a.txt") @ "288f0d".
+file("b.txt") @ "288f0d".
 
-.pred file_explicit(text,text,int).
-file_explicit(File,Version,Time) :- file(File) @ <version> Version @ Time.
+.pred file_explicit(text,text).
+file_explicit(File,Version) :- file(File) @ Version.
 
-?- AG <version> file("a.txt").
-?- (AG <version> file("a.txt")) @ <version> "a4afb5".
-?- AG (file("a.txt") @ <version> "a4afb5").
+?- AG file("a.txt").              % Q1: 376e06; 288f0d
+?- (AG file("a.txt")) @ "a4afb5". % Q2: false
+?- AG (file("a.txt") @ "a4afb5"). % Q3: true
 
-?- | <version> T (file(File) @ <version> T).
-?- file(File), | <clock> T recent(T).
+?- | <version> T (file(File) @ T).    % Q4: All files
+?- file(File), | <clock> T recent(T). % Q5: a, b (a twice)
+
+.pred recent_version(text,text).
+recent_version(H,H') :- recent(T), timestamp() @ <version> H @ T, version(H,H').
+
+?- | <recent_version> I (file("c.txt") @ I). %Q6: false
 
 .pred reverse_version(text,text).
 reverse_version(H,H') :- version(H',H), ! version(H,H).
 reverse_version(H,H)  :- version(H,H'), ! version(_,H).
 
-?- AG <reverse_version> | <reverse_version> I (file("c.txt") @ <version> I).
+?- AG | <reverse_version> I (file("c.txt") @ I). % Q7: a4; 07, 9e
 
 .pred day(text) @ clock.
 day("Monday")    @ 1.
@@ -71,4 +84,4 @@ day("Sunday")    @ 7.
 day("Monday")    @ 8.
 day("Tuesday")   @ 9.
 
-?- file("a.txt"), day("Monday").
+?- file("a.txt"), day("Monday"). % Q8: a4; 28
