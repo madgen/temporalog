@@ -18,7 +18,7 @@ import qualified Language.Vanillalog.Generic.AST as AG
 
 import           Language.Temporalog.AST
 import           Language.Temporalog.Transformation.Temporal.Compiler (timePreds)
-import qualified Language.Temporalog.Metadata as MD
+import qualified Language.Temporalog.Analysis.Metadata as MD
 
 injectJoins :: MD.Metadata
             -> AG.Program Void (HOp 'Explicit) (BOp 'Explicit 'Temporal)

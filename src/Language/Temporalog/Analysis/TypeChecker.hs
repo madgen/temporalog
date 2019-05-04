@@ -1,7 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module Language.Temporalog.TypeChecker (typeCheck) where
+module Language.Temporalog.Analysis.TypeChecker (typeCheck) where
 
 import Protolude hiding (sym)
 
@@ -16,7 +16,7 @@ import           Language.Vanillalog.Generic.Transformation.Util (transformM)
 import           Language.Vanillalog.Generic.AST
 import           Language.Vanillalog.Generic.Pretty (pp)
 
-import qualified Language.Temporalog.Metadata as MD
+import qualified Language.Temporalog.Analysis.Metadata as MD
 
 type LocalTypeEnvironment  = [ (Var, TermType) ]
 

@@ -18,7 +18,7 @@ import Language.Exalog.Logger
 import Language.Exalog.Pretty.Helper
 
 import           Language.Temporalog.AST
-import qualified Language.Temporalog.Metadata as MD
+import qualified Language.Temporalog.Analysis.Metadata as MD
 
 removeDecls :: forall eleb
              . Program eleb -> AG.Program Void (HOp eleb) (BOp eleb 'Temporal)

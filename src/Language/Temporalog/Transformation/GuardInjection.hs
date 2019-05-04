@@ -26,7 +26,7 @@ import qualified Language.Exalog.Tuples as T
 import           Language.Exalog.SrcLoc (span)
 import           Language.Exalog.WellModing (isWellModed, checkWellModability)
 
-import qualified Language.Temporalog.Metadata as MD
+import qualified Language.Temporalog.Analysis.Metadata as MD
 import           Language.Temporalog.Transformation.Fresh
 
 type Injection = FreshT (StateT (R.Solution 'ABase) Logger)

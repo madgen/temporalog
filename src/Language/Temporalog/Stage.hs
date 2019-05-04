@@ -34,8 +34,9 @@ import qualified Language.Vanillalog.Generic.Parser.Lexeme as L
 import           Language.Vanillalog.Generic.Transformation.Query (nameQueries)
 import           Language.Vanillalog.Transformation.Normaliser (normalise)
 
+import qualified Language.Temporalog.Analysis.Metadata as MD
+import           Language.Temporalog.Analysis.TypeChecker (typeCheck)
 import           Language.Temporalog.AST
-import qualified Language.Temporalog.Metadata as MD
 import qualified Language.Temporalog.Parser.Lexer as Lexer
 import qualified Language.Temporalog.Parser.Parser as Parser
 import           Language.Temporalog.Transformation.Declaration (removeDecls, checkDecls)
@@ -45,7 +46,6 @@ import           Language.Temporalog.Transformation.Temporal.Elaborator (elabora
 import           Language.Temporalog.Transformation.Temporal.Identities (applyTemporalIdentities)
 import           Language.Temporalog.Transformation.Temporal.JoinInjection (injectJoins)
 import           Language.Temporalog.Transformation.Temporal.Vanilla (toVanilla)
-import           Language.Temporalog.TypeChecker (typeCheck)
 
 type Stage a = FilePath -> BS.ByteString -> Log.Logger a
 

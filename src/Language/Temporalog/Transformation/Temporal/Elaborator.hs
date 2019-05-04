@@ -20,7 +20,7 @@ import Language.Exalog.Logger
 import qualified Language.Vanillalog.Generic.AST as AG
 
 import           Language.Temporalog.AST
-import qualified Language.Temporalog.Metadata as MD
+import qualified Language.Temporalog.Analysis.Metadata as MD
 
 type Elaboration = ReaderT MD.Metadata Logger
 

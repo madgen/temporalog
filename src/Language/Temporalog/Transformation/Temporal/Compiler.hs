@@ -21,7 +21,7 @@ import qualified Language.Vanillalog.Generic.AST as AG
 import           Language.Vanillalog.Generic.Pretty (pp)
 
 import           Language.Temporalog.AST
-import qualified Language.Temporalog.Metadata as MD
+import qualified Language.Temporalog.Analysis.Metadata as MD
 import           Language.Temporalog.Transformation.Fresh
 
 eliminateTemporal :: MD.Metadata

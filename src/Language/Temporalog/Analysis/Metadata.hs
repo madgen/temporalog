@@ -4,7 +4,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
-module Language.Temporalog.Metadata
+module Language.Temporalog.Analysis.Metadata
   ( Metadata
   , PredicateInfo
   , processMetadata
