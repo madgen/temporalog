@@ -18,13 +18,15 @@ import Language.Exalog.Core
 data EdgeLabel = Vertical | Horizontal
 data Use       = Head | Body Polarity deriving (Eq)
 
+data Constant = CSym Sym | CWild deriving Eq
+
 data ProtoNode ann =
-    NPred
+    NPredicate
       { _predicateBox :: PredicateBox ann
       , _paramIndex   :: Int
       , _use          :: Use
       }
-  | NSym { _sym :: Sym }
+  | NConstant { _constant :: Constant }
 
 deriving instance Identifiable (PredicateAnn ann) b => Eq (ProtoNode ann)
 
@@ -69,18 +71,21 @@ addBodyLiteral Literal{..} = do
       updateBinder var dst
 
       pure [ dst ]
-    (ix, TSym sym) -> do
-      let src = NSym sym
-
-      let dst = mkPredNode ix
-      addEdge (src, Horizontal, dst)
-
-      pure [ src, dst ]
-    _              -> pure [ ]
+    (ix, TSym sym) -> addConstant ix $ CSym sym
+    (ix, TWild)    -> addConstant ix CWild
 
   forM_ newNodes addNode
   where
-  mkPredNode ix = NPred (PredicateBox predicate) ix (Body polarity)
+  addConstant ix constant = do
+    let src = NConstant constant
+    let dst = mkPredNode ix
+
+    addEdge (src, Horizontal, dst)
+
+    pure [ src, dst ]
+
+  mkPredNode ix = NPredicate (PredicateBox predicate) ix (Body polarity)
 
 sidewaysInfo :: Clause ann -> ProtoGraph ann
-sidewaysInfo Clause{..} = execSideways $ forM_ body addBodyLiteral
+sidewaysInfo Clause{..} = execSideways $
+  forM_ body addBodyLiteral
