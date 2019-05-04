@@ -8,60 +8,71 @@ module Language.Temporalog.Analysis.Dataflow
   (
   ) where
 
-import Protolude
+import Protolude hiding (sym)
 
 import qualified Data.Map.Strict as M
 import qualified Data.Vector.Sized as V
 
 import Language.Exalog.Core
 
-data Label ann =
-    LPred
+data EdgeLabel = Head | Vertical | Horizontal
+
+data ProtoNode ann =
+    NPred
       { _predicateBox :: PredicateBox ann
       , _paramIndex   :: Int
       , _polarity     :: Polarity
       }
-  | LSym { _sym :: Sym }
+  | NSym { _sym :: Sym }
 
-deriving instance Identifiable (PredicateAnn ann) b => Eq (Label ann)
+deriving instance Identifiable (PredicateAnn ann) b => Eq (ProtoNode ann)
 
-data SidewaySt ann = SidewaySt
-  { _binderMap :: M.Map Var (Label ann)
-  , _nodes     :: [ Label ann ]
-  , _edges     :: [ (Label ann, Label ann) ]
+type ProtoEdge ann  = (ProtoNode ann, EdgeLabel, ProtoNode ann)
+type ProtoGraph ann = ([ ProtoNode ann ], [ ProtoEdge ann ])
+
+data HorizontalSt ann = HorizontalSt
+  { _binderMap :: M.Map Var (ProtoNode ann)
+  , _nodes     :: [ ProtoNode ann ]
+  , _edges     :: [ ProtoEdge ann ]
   }
 
-initSidewaySt = SidewaySt M.empty [] []
+initHorizontalSt = HorizontalSt M.empty [] []
 
-type Sideway ann = State (SidewaySt ann)
+type Horizontal ann = State (HorizontalSt ann)
 
-execSideway :: Sideway ann a -> ([ Label ann ], [ (Label ann, Label ann) ])
-execSideway act | sidewaySt <- (`execState` initSidewaySt) act =
-  (_nodes sidewaySt, _edges sidewaySt)
+execHorizontal :: Horizontal ann a -> ProtoGraph ann
+execHorizontal act | horizontalSt <- (`execState` initHorizontalSt) act =
+  (_nodes horizontalSt, _edges horizontalSt)
 
-addSidewayNode :: Label ann -> Sideway ann ()
-addSidewayNode node = modify (\st -> st {_nodes = node : _nodes st})
+addHorizontalNode :: ProtoNode ann -> Horizontal ann ()
+addHorizontalNode node = modify (\st -> st {_nodes = node : _nodes st})
 
-addSidewayEdge :: (Label ann, Label ann) -> Sideway ann ()
-addSidewayEdge edge = modify (\st -> st {_edges = edge : _edges st})
+addHorizontalEdge :: ProtoEdge ann -> Horizontal ann ()
+addHorizontalEdge edge = modify (\st -> st {_edges = edge : _edges st})
 
-getBinder :: Var -> Sideway ann (Maybe (Label ann))
+getBinder :: Var -> Horizontal ann (Maybe (ProtoNode ann))
 getBinder var = M.lookup var . _binderMap <$> get
 
-updateBinder :: Var -> Label ann -> Sideway ann ()
+updateBinder :: Var -> ProtoNode ann -> Horizontal ann ()
 updateBinder var binder =
   modify (\st -> st {_binderMap = M.insert var binder $ _binderMap st})
 
-addSidewayLiteral :: Literal ann -> Sideway ann ()
-addSidewayLiteral Literal{..} = (`traverse_` zip [0..] (V.toList terms)) $ \case
+addHorizontalLiteral :: Literal ann -> Horizontal ann ()
+addHorizontalLiteral Literal{..} = (`traverse_` zip [0..] (V.toList terms)) $ \case
   (ix, TVar var) -> do
-    let dstLabel = LPred (PredicateBox predicate) ix polarity
-    addSidewayNode dstLabel
+    let dst = mkPredNode ix
+    addHorizontalNode dst
     -- Maybe add an edge
-    traverse_ (addSidewayEdge . (,dstLabel)) =<< getBinder var
+    traverse_ (addHorizontalEdge . (, Horizontal, dst)) =<< getBinder var
     -- Update the binder to the current label
-    updateBinder var dstLabel
+    updateBinder var dst
+  (ix, TSym sym) -> do
+    let src = NSym sym
+    let dst = mkPredNode ix
+    addHorizontalEdge (src, Horizontal, dst)
   _              -> pure ()
+  where
+  mkPredNode ix = NPred (PredicateBox predicate) ix polarity
 
-sidewayInfo :: Clause ann -> ([ Label ann ], [ (Label ann, Label ann) ])
-sidewayInfo Clause{..} = execSideway $ traverse_ addSidewayLiteral body
+horizontalInfo :: Clause ann -> ProtoGraph ann
+horizontalInfo Clause{..} = execHorizontal $ traverse_ addHorizontalLiteral body
