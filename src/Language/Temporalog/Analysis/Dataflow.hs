@@ -68,7 +68,7 @@ addBodyLiteral Literal{..} = do
       -- Maybe add an edge
       traverse_ (addEdge . (, Horizontal, dst)) =<< getBinder var
       -- Update the binder to the current label
-      updateBinder var dst
+      when (polarity == Positive) $ updateBinder var dst
 
       pure [ dst ]
     (ix, TSym sym) -> addConstant ix $ CSym sym
