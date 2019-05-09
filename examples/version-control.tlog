@@ -1,7 +1,7 @@
 % Object graph
 %
-%    1                                  8
-%  a.txt        2          7          b.txt
+%               2                       8
+%    1        a.txt        7          b.txt
 %  c.txt      c.txt      a.txt        a.txt
 % a4afb5 --> 0778df --> 376e06 ----> 288f0d---
 %                  \            /      ^     |
@@ -43,24 +43,24 @@ recent(6).
 recent(T') :- recent(T), clock(T,T'), ! clock(T,-1).
 
 .pred file(text) @ version.
-file("a.txt") @ "a4afb5".
+file("a.txt") @ "0778df".
+file("a.txt") @ "376e06".
+file("a.txt") @ "288f0d".
+file("b.txt") @ "9eb447".
+file("b.txt") @ "288f0d".
 file("c.txt") @ "a4afb5".
 file("c.txt") @ "0778df".
-file("a.txt") @ "376e06".
-file("b.txt") @ "9eb447".
 file("c.txt") @ "9eb447".
-file("a.txt") @ "288f0d".
-file("b.txt") @ "288f0d".
 
 .pred file_explicit(text,text).
 file_explicit(File,Version) :- file(File) @ Version.
 
 ?- AG file("a.txt").              % Q1: 376e06; 288f0d
-?- (AG file("a.txt")) @ "a4afb5". % Q2: false
-?- AG (file("a.txt") @ "a4afb5"). % Q3: true
+?- (AG file("c.txt")) @ "0778df". % Q2: false
+?- AG (file("c.txt") @ "0778df"). % Q3: true
 
 ?- | <version> T (file(File) @ T).    % Q4: All files
-?- file(File), | <clock> T recent(T). % Q5: a, b (a twice)
+?- file(File), | <clock> T recent(T). % Q5: a (twice), b
 
 .pred recent_version(text,text).
 recent_version(H,H') :- recent(T), timestamp() @ <version> H @ T, version(H,H').
@@ -75,13 +75,13 @@ reverse_version(H,H)  :- version(H,H'), ! version(_,H).
 
 .pred day(text) @ clock.
 day("Monday")    @ 1.
-day("Tuesday")   @ 2.
-day("Wednesday") @ 3.
-day("Thursday")  @ 4.
-day("Friday")    @ 5.
-day("Saturday")  @ 6.
-day("Sunday")    @ 7.
+day("Monday")    @ 2.
+day("Tuesday")   @ 3.
+day("Wednesday") @ 4.
+day("Wednesday") @ 5.
+day("Friday")    @ 6.
+day("Friday")    @ 7.
 day("Monday")    @ 8.
-day("Tuesday")   @ 9.
+day("Monday")    @ 9.
 
 ?- file("a.txt"), day("Monday"). % Q8: a4; 28
