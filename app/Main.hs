@@ -33,29 +33,29 @@ data Stage =
   | Vanilla
   | VanillaNormal
   | Exalog
-  | ExalogGuard
-  | ExalogDataflow
+  | ExalogRangeRepair
+  | ExalogModeRepair
 
 stageParser :: Parser Stage
 stageParser =
-     stageFlag' TemporalLex       "lex"       "Tokenize"
- <|> stageFlag' TemporalParse     "parse"     "Parse"
- <|> stageFlag' TemporalMeta      "metadata"  "Dump metadata"
- <|> stageFlag' TemporalElaborate "elaborate" "Time elaboration"
- <|> stageFlag' TemporalNoDecl    "no-decl"   "Remove declarations"
- <|> stageFlag' TemporalJoin      "join"      "Inject joins"
- <|> stageFlag' TemporalNoTime    "no-time"   "Eliminate temporal ops"
- <|> stageFlag' TemporalType      "typecheck" "Type check"
- <|> stageFlag' Vanilla           "vanilla"   "Vanilla"
- <|> stageFlag' VanillaNormal     "normal"    "Normalise"
- <|> stageFlag' Exalog            "exalog"    "Compiled Exalog program"
- <|> stageFlag' ExalogGuard       "guard"     "Guard injection Exalog program"
- <|> stageFlag' ExalogDataflow    "checked"   "Well-moded and range-restricted"
+     stageFlag' TemporalLex       "lex"          "Tokenize"
+ <|> stageFlag' TemporalParse     "parse"        "Parse"
+ <|> stageFlag' TemporalMeta      "metadata"     "Dump metadata"
+ <|> stageFlag' TemporalElaborate "elaborate"    "Time elaboration"
+ <|> stageFlag' TemporalNoDecl    "no-decl"      "Remove declarations"
+ <|> stageFlag' TemporalJoin      "join"         "Inject joins"
+ <|> stageFlag' TemporalNoTime    "no-time"      "Eliminate temporal ops"
+ <|> stageFlag' TemporalType      "typecheck"    "Type check"
+ <|> stageFlag' Vanilla           "vanilla"      "Vanilla"
+ <|> stageFlag' VanillaNormal     "normal"       "Normalise"
+ <|> stageFlag' Exalog            "exalog"       "Compiled Exalog program"
+ <|> stageFlag' ExalogRangeRepair "range-repair" "Repair and check range restriction"
+ <|> stageFlag' ExalogModeRepair  "mode-repair"  "Repair and check moding"
 
 run :: RunOptions -> IO ()
 run RunOptions{..} = do
   bs <- BS.fromStrict . encodeUtf8 <$> readFile file
-  succeedOrDie (Stage.dataflowSafe file >=> uncurry S.solve) bs $
+  succeedOrDie (Stage.wellModed file >=> uncurry S.solve) bs $
       putStrLn . pp
 
 repl :: ReplOptions -> IO ()
@@ -80,14 +80,10 @@ prettyPrint PPOptions{..} = do
     TemporalType      -> succeedOrDie (Stage.typeChecked file) bs $ void . pure
     Vanilla           -> succeedOrDie (fmap snd <$> Stage.vanilla file) bs $
       putStrLn . pp
-    VanillaNormal     -> succeedOrDie (fmap snd <$> Stage.normalised file) bs $
-      putStrLn . pp
-    Exalog            -> succeedOrDie (fmap snd <$> Stage.compiled file) bs
-      printExalog
-    ExalogGuard       -> succeedOrDie (Stage.guardInjected file) bs
-      printExalog
-    ExalogDataflow    -> succeedOrDie (Stage.dataflowSafe file) bs
-      printExalog
+    VanillaNormal     -> succeedOrDie (Stage.normalised file) bs $ putStrLn . pp
+    Exalog            -> succeedOrDie (Stage.compiled        file) bs printExalog
+    ExalogRangeRepair -> succeedOrDie (Stage.rangeRestricted file) bs printExalog
+    ExalogModeRepair  -> succeedOrDie (Stage.wellModed       file) bs printExalog
 
 printExalog :: (E.Program 'E.ABase, R.Solution 'E.ABase) -> IO ()
 printExalog (exalogProgram, initEDB) = do

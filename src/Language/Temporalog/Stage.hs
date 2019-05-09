@@ -13,8 +13,8 @@ module Language.Temporalog.Stage
   , vanilla
   , normalised
   , compiled
-  , guardInjected
-  , dataflowSafe
+  , rangeRestricted
+  , wellModed
   ) where
 
 import Protolude
@@ -23,9 +23,10 @@ import qualified Data.ByteString.Lazy.Char8 as BS
 
 import qualified Language.Exalog.Core as E
 import qualified Language.Exalog.Logger as Log
+import           Language.Exalog.RangeRestriction (fixRangeRestriction)
 import qualified Language.Exalog.Relation as R
-import           Language.Exalog.RangeRestriction (checkRangeRestriction)
-import           Language.Exalog.WellModing (checkWellModedness)
+import           Language.Exalog.Renamer (rename)
+import           Language.Exalog.WellModing (fixModing)
 
 import qualified Language.Vanillalog.AST as VA
 import qualified Language.Vanillalog.Generic.AST as AG
@@ -40,7 +41,6 @@ import           Language.Temporalog.AST
 import qualified Language.Temporalog.Parser.Lexer as Lexer
 import qualified Language.Temporalog.Parser.Parser as Parser
 import           Language.Temporalog.Transformation.Declaration (removeDecls, checkDecls)
-import           Language.Temporalog.Transformation.GuardInjection (injectGuards)
 import           Language.Temporalog.Transformation.Temporal.Compiler (eliminateTemporal)
 import           Language.Temporalog.Transformation.Temporal.Elaborator (elaborate)
 import           Language.Temporalog.Transformation.Temporal.Identities (applyTemporalIdentities)
@@ -88,40 +88,23 @@ vanilla file bs = do
   ast' <- toVanilla ast
   pure (meta, ast')
 
-typeChecked :: Stage (MD.Metadata, VA.Program)
+typeChecked :: Stage VA.Program
 typeChecked file bs = do
-  res <- vanilla file bs
-  uncurry typeCheck res
-  pure res
+  (meta, ast) <- vanilla file bs
+  typeCheck meta ast
+  pure ast
 
-namedQueries :: Stage (MD.Metadata, VA.Program)
-namedQueries file bs = do
-  (meta, ast) <- typeChecked file bs
-  ast' <- nameQueries ast
-  pure (meta, ast')
+namedQueries :: Stage VA.Program
+namedQueries file = typeChecked file >=> nameQueries
 
-normalised :: Stage (MD.Metadata, VA.Program)
-normalised file bs = do
-  (meta, ast) <- namedQueries file bs
-  ast' <- normalise ast
-  pure (meta, ast')
+normalised :: Stage VA.Program
+normalised file = namedQueries file >=> normalise
 
-compiled :: Stage (MD.Metadata, (E.Program 'E.ABase, R.Solution 'E.ABase))
-compiled file bs = do
-  (meta, ast) <- normalised file bs
-  res         <- compile ast
+compiled :: Stage (E.Program 'E.ABase, R.Solution 'E.ABase)
+compiled file = normalised file >=> compile
 
-  pure (meta, res)
+rangeRestricted :: Stage (E.Program 'E.ABase, R.Solution 'E.ABase)
+rangeRestricted file = compiled file >=> rename >=> fixRangeRestriction
 
-guardInjected :: Stage (E.Program 'E.ABase, R.Solution 'E.ABase)
-guardInjected file bs = do
-  (meta, res) <- compiled file bs
-  injectGuards meta res
-
-dataflowSafe :: Stage (E.Program 'E.ABase, R.Solution 'E.ABase)
-dataflowSafe file bs = do
-  res@(pr, _) <- guardInjected file bs
-  checkRangeRestriction pr
-  checkWellModedness pr
-
-  pure res
+wellModed :: Stage (E.Program 'E.ABase, R.Solution 'E.ABase)
+wellModed file = rangeRestricted file >=> rename >=> fixModing
