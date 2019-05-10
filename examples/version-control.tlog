@@ -56,8 +56,8 @@ file("c.txt") @ "9eb447".
 file_explicit(File,Version) :- file(File) @ Version.
 
 ?- AG file("a.txt").              % Q1: 376e06; 288f0d
-?- (AG file("c.txt")) @ "0778df". % Q2: false
-?- AG (file("c.txt") @ "0778df"). % Q3: true
+?- (AG file("a.txt")) @ "0778df". % Q2: false
+?- AG (file("a.txt") @ "0778df"). % Q3: true
 
 ?- | <version> T (file(File) @ T).    % Q4: All files
 ?- file(File), | <clock> T recent(T). % Q5: a (twice), b
