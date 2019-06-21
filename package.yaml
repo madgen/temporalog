@@ -53,7 +53,7 @@ library:
   - array >= 0.5 && < 0.6
 
 executables:
-  temporalog-exe:
+  temporalog:
     main:                Main.hs
     source-dirs:         app
     ghc-options:
