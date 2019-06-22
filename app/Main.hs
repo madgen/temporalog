@@ -55,8 +55,9 @@ stageParser =
 run :: RunOptions -> IO ()
 run RunOptions{..} = do
   bs <- BS.fromStrict . encodeUtf8 <$> readFile file
-  succeedOrDie (Stage.wellModed file >=> uncurry S.solve) bs $
-      putStrLn . pp
+
+  succeedOrDie (Stage.parse file) bs $ \ast ->
+    succeedOrDie (Stage.wellModed file >=> uncurry S.solve) bs $ display ast
 
 repl :: ReplOptions -> IO ()
 repl opts = panic "REPL is not yet supported."
