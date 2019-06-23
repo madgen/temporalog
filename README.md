@@ -120,7 +120,7 @@ standard.
 
 Here, a path is a (possibly infinite) trace of states (times).
 
-## Hybrid operators
+### Hybrid operators
 
 Modal operators provide an abstraction for time, but occasionally it is useful
 to be able to observe time as well as to set it. This is where _hybrid temporal
