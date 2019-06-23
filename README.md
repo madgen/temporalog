@@ -1,7 +1,11 @@
 # Temporalog
 
 Temporalog fuses Datalog and CTL. The semantics of the language rely on the so
-called extended Kripke structures which which is yet to be published... For now,
+called extended Kripke structures which  is yet to be published...
+
+It compiles down to stratified Datalog. More specifically, it compiles down to
+[Vanillalog](https://github.com/madgen/vanillalog) which compiles to
+[Exalog](https://github.com/madgen/exalog).
 
 For the semantically inclined: the temporal language is multimodal meaning we
 have a family of operators. The accessibility relation is part of the modal
