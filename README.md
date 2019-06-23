@@ -52,6 +52,15 @@ stack exec -- temporalog pp --exalog -f FILE
 
 ## Language overview
 
+We look at the basic syntactic features of the language. There are also some
+[examples](tree/master/examples). The ones most instructive (read: somewhat
+commented and not entirely random) are `version-control.tlog` and
+`jump-bind.tlog`.
+
+This overview is a draft. When something doesn't make sense or isn't working as
+advertised, I'd appreciate if you open an issue, so I can improve the
+documentation. Thanks!
+
 ### Basic declarations
 
 Temporalog is a typed Datalog implementation with obligatory declarations. The
