@@ -110,6 +110,7 @@ token :-
 <scBJ> @int   { exitStartCodeAnd $ useInput (TInt . read . BS.unpack) }
 <scBJ> \"     { exitStartCodeAnd $ enterStartCodeAnd str $ skip }
 
+<scA> \"\"   { basic (TStr "") } -- Empty string
 <scA> \"     { enterStartCodeAnd str $ skip }
 <str> [^\"]+ { useInput TStr }
 <str> \"     { exitStartCodeAnd skip }
