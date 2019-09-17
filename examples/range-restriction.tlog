@@ -1,0 +1,23 @@
+.pred v(int,int).
+v(1,2).
+v(2,3).
+v(2,4).
+v(4,5).
+
+.pred v'(int,int).
+v'(X,Y) :- v(X,Y).
+v'(Y,Y) :- v(X,Y), ! v(Y,_).
+
+.pred p(int).
+p(10).
+p(20).
+p(30).
+
+.pred gr(int).
+gr(20).
+
+.pred q() @ v.
+q() @ 1.
+q() @ 2.
+
+?- gr(X), E <v'> [ p(X) U q() @ X ].

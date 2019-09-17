@@ -1,0 +1,16 @@
+.pred v(int,int).
+v(1,2).
+v(2,3).
+v(2,4).
+
+.pred v'(int,int).
+v'(T,T') :- v(T,T').
+v'(T',T')  :- v(T,T'), ! v(T',T'').
+
+.pred q(int) @ v v'.
+q(1000) @ v 2 @ v' 2.
+q(2000) @ v 3 @ v' 3.
+
+?- EX v EX v' q(X).
+?- EF v EF v' q(X).
+?- EG v EG v' q(X).
