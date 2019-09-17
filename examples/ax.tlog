@@ -5,7 +5,7 @@ v(2,4).
 
 .pred v'(int,int).
 v'(T,T') :- v(T,T').
-v'(T',T')  :- v(T,T'), ! v(T',_).
+v'(T',T')  :- v(_,T'), ! v(T',_).
 
 .pred q(int) @ v'.
 q(1000) @ 2.
