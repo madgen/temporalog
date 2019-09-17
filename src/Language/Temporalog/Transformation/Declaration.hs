@@ -18,7 +18,6 @@ import Language.Exalog.Logger
 import Language.Exalog.Pretty.Helper
 
 import           Language.Temporalog.AST
-import qualified Language.Temporalog.Analysis.Metadata as MD
 
 removeDecls :: forall eleb
              . Program eleb -> AG.Program Void (HOp eleb) (BOp eleb 'Temporal)
@@ -30,8 +29,8 @@ removeDecls AG.Program{..} = AG.Program{_statements = newStatements,..}
                 $ _statements
 
 checkDecls :: [ Sentence eleb ] -> [ Declaration ] -> Logger ()
-checkDecls sentences decls = do
-  sentenceExistenceCheck sentences decls
+checkDecls sents decls = do
+  sentenceExistenceCheck sents decls
 
   let (predDecls, joinDecls) = partitionEithers $ (<$> decls) $ \case
         DeclPred{..} -> Left _predDecl
@@ -40,7 +39,7 @@ checkDecls sentences decls = do
   predDeclUniquenessCheck predDecls
   joinDeclUniquenessCheck joinDecls
 
-  declExistenceCheck sentences predDecls
+  declExistenceCheck sents predDecls
 
 -- |Make sure there no repeated declarations for the same predicate.
 predDeclUniquenessCheck :: [ PredicateDeclaration ] -> Logger ()
@@ -67,7 +66,7 @@ joinDeclUniquenessCheck joinDecls = do
 -- |Check all predicates appearing in declarations have corresponding clauses
 -- defining them.
 sentenceExistenceCheck :: [ Sentence eleb ] -> [ Declaration ] -> Logger ()
-sentenceExistenceCheck sentences decls = forM_ decls $ \case
+sentenceExistenceCheck sents decls = forM_ decls $ \case
   DeclPred PredicateDeclaration{..} -> do
     let declaredPredSym = #_predSym _atomType
     checkExistence _span declaredPredSym
@@ -79,14 +78,14 @@ sentenceExistenceCheck sentences decls = forM_ decls $ \case
     unless (pred `elem` predsBeingDefined) $
       scold (Just s) $ "Predicate " <> pp pred <> " lacks a definition."
 
-  predsBeingDefined = (`mapMaybe` sentences) $ \case
+  predsBeingDefined = (`mapMaybe` sents) $ \case
     AG.SQuery{}                                  -> Nothing
     AG.SFact{_fact     = AG.Fact{_head   = sub}} -> Just $ name sub
     AG.SClause{_clause = AG.Clause{_head = sub}} -> Just $ name sub
 
 -- |Check all predicates defined have corresponding declarations.
 declExistenceCheck :: [ Sentence eleb ] -> [ PredicateDeclaration ] -> Logger ()
-declExistenceCheck sentences decls = forM_ sentences $ \case
+declExistenceCheck sents decls = forM_ sents $ \case
   AG.SQuery{} -> pure ()
   AG.SFact{AG._fact     = AG.Fact{_head   = sub,..}} ->
     checkExistence _span (name sub)

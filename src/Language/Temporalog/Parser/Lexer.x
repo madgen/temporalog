@@ -1,5 +1,6 @@
 {
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 module Language.Temporalog.Parser.Lexer where
 
 import Prelude
@@ -9,7 +10,7 @@ import           Data.Text.Lazy.Encoding (decodeUtf8)
 import           Data.Text.Lazy (toStrict)
 import qualified Data.ByteString.Lazy.Char8 as BS
 
-import           Language.Exalog.SrcLoc hiding (file)
+import           Language.Exalog.SrcLoc hiding (_file)
 import qualified Language.Exalog.Logger as Log
 
 import qualified Language.Vanillalog.Generic.Parser.Lexeme as L
@@ -161,14 +162,14 @@ basic = useInput . const
 
 useInput :: (BS.ByteString -> Token str) -> AlexAction (L.Lexeme (Token str))
 useInput f (aPos,_,inp,_) len = do
-  file <- getFile
-  return $ L.Lexeme (alexToSpan aPos file len) (f $ BS.take len inp)
+  filepath <- getFile
+  return $ L.Lexeme (alexToSpan aPos filepath len) (f $ BS.take len inp)
 
 -- Assumes all tokens are on the same line
 alexToSpan :: AlexPosn -> FilePath -> Int64 -> SrcSpan
-alexToSpan (AlexPn _ line col) file len =
-  SrcSpan (SrcLoc file line col)
-          (SrcLoc file line (col + (fromIntegral len) - 1))
+alexToSpan (AlexPn _ line col) filepath len =
+  SrcSpan (SrcLoc filepath line col)
+          (SrcLoc filepath line (col + (fromIntegral len) - 1))
 
 eof :: L.Lexeme (Token str)
 eof = L.Lexeme dummySpan TEOF
@@ -177,12 +178,12 @@ alexEOF :: Alex (L.Lexeme (Token str))
 alexEOF = return eof
 
 data AlexUserState = AlexUserState
-  { file :: FilePath
-  , startCodeStack :: [ Int ]
+  { _file :: FilePath
+  , _startCodeStack :: [ Int ]
   }
 
 alexInitUserState :: AlexUserState
-alexInitUserState = AlexUserState { file = "", startCodeStack = [] }
+alexInitUserState = AlexUserState { _file = "", _startCodeStack = [] }
 
 getUserState :: Alex AlexUserState
 getUserState = Alex $ \s -> Right (s, alex_ust $ s)
@@ -195,18 +196,18 @@ setUserState :: AlexUserState -> Alex ()
 setUserState = modifyUserState . const
 
 getFile :: Alex FilePath
-getFile = file <$> getUserState
+getFile = _file <$> getUserState
 
 setFile :: FilePath -> Alex ()
-setFile file = modifyUserState (\s -> s {file = file})
+setFile filepath = modifyUserState (\s -> s {_file = filepath})
 
 pushStartCode :: Int -> Alex ()
 pushStartCode startCode =
-  modifyUserState (\s -> s {startCodeStack = startCode : startCodeStack s})
+  modifyUserState (\s -> s {_startCodeStack = startCode : _startCodeStack s})
 
 topStartCode :: Alex Int
 topStartCode = do
-  stack <- startCodeStack <$> getUserState
+  stack <- _startCodeStack <$> getUserState
   case stack of
     (x:_) -> return x
     _     -> Alex . const $
@@ -215,7 +216,7 @@ topStartCode = do
 popStartCode :: Alex Int
 popStartCode = do
   startCode <- topStartCode
-  modifyUserState (\s -> s {startCodeStack = tail . startCodeStack $ s})
+  modifyUserState (\s -> s {_startCodeStack = tail . _startCodeStack $ s})
   pure startCode
 
 enterStartCode' :: Int -> Alex ()
@@ -237,12 +238,12 @@ exitStartCodeAnd :: AlexAction a -> AlexAction a
 exitStartCodeAnd action inp len = exitStartCode' *> action inp len
 
 lex :: FilePath -> BS.ByteString -> Log.Logger [ L.Lexeme (Token Text) ]
-lex file source =
+lex filepath source =
   case result of
     Right lexemes -> pure $ fmap (fmap (toStrict . decodeUtf8)) <$> lexemes
     Left msg      -> Log.scold Nothing (fromString msg)
   where
-  result = runAlex source (setFile file >> lexM)
+  result = runAlex source (setFile filepath >> lexM)
 
   lexM = do
     tok <- alexMonadScan
@@ -259,7 +260,7 @@ lex file source =
 
 #if defined (DEBUG) && defined (LEXER)
 debugStartCodeStack = do
-  stack <- fmap StartCode . startCodeStack <$> getUserState
+  stack <- fmap StartCode . _startCodeStack <$> getUserState
   traceM $ "Start code stack: " <> show stack
 
 debugStartCode = do

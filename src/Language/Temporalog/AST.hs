@@ -52,7 +52,7 @@ import Protolude hiding ((<>), empty)
 
 import Data.Functor.Foldable (Base, cata)
 
-import Text.PrettyPrint ((<+>), (<>), empty, punctuate, hcat)
+import Text.PrettyPrint ((<+>), (<>), empty, hcat)
 
 import           Language.Exalog.Pretty.Helper ((<+?>), prettyC)
 
@@ -125,17 +125,17 @@ data BOp :: ElaborationStatus -> Temporal -> AG.OpKind -> Type where
 timePred :: BOp 'Explicit temp a -> Maybe PredicateSymbol
 timePred op =
   case op of
-    AX (Exp timePred)         -> Just timePred
-    EX (Exp timePred)         -> Just timePred
-    AG (Exp timePred)         -> Just timePred
-    EG (Exp timePred)         -> Just timePred
-    AF (Exp timePred)         -> Just timePred
-    EF (Exp timePred)         -> Just timePred
-    AU (Exp timePred)         -> Just timePred
-    EU (Exp timePred)         -> Just timePred
-    Bind (Exp timePred) _     -> Just timePred
-    BodyJump (Exp timePred) _ -> Just timePred
-    _                         -> Nothing
+    AX       (Exp timePredicate)   -> Just timePredicate
+    EX       (Exp timePredicate)   -> Just timePredicate
+    AG       (Exp timePredicate)   -> Just timePredicate
+    EG       (Exp timePredicate)   -> Just timePredicate
+    AF       (Exp timePredicate)   -> Just timePredicate
+    EF       (Exp timePredicate)   -> Just timePredicate
+    AU       (Exp timePredicate)   -> Just timePredicate
+    EU       (Exp timePredicate)   -> Just timePredicate
+    Bind     (Exp timePredicate) _ -> Just timePredicate
+    BodyJump (Exp timePredicate) _ -> Just timePredicate
+    _                              -> Nothing
 
 data HOp :: ElaborationStatus -> AG.OpKind -> Type where
   HeadJump      :: TimeSym eleb -> AG.Term -> HOp eleb 'AG.Unary

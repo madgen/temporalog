@@ -53,12 +53,12 @@ determineTime :: TimeSym 'Implicit
               -> Elaboration (Maybe PredicateSymbol)
 determineTime timeSym timePreds span =
   case timeSym of
-    Exp timePred -> pure $ Just timePred
-    Imp          ->
+    Exp timePredicate     -> pure $ Just timePredicate
+    Imp                   ->
       case S.elems timePreds of
-        []           -> pure Nothing
-        [ timePred ] -> pure $ Just timePred
-        timePreds'   -> lift $ scold (Just span) $
+        []                -> pure Nothing
+        [ timePredicate ] -> pure $ Just timePredicate
+        timePreds'        -> lift $ scold (Just span) $
           "Temporal expression is ambiguous. Time predicate may be one of: "
           <> T.intercalate ", " (map pp timePreds')
 
@@ -74,11 +74,11 @@ elaborateHead = fmap fst <$> cataA alg
     (phi, timePreds) <- action
     mTimePred <- determineTime timeSym timePreds span
     case mTimePred of
-      Just timePred -> pure
-        ( SHeadJump span phi (Exp timePred) time
-        , timePred `S.delete` timePreds
+      Just timePredicate -> pure
+        ( SHeadJump span phi (Exp timePredicate) time
+        , timePredicate `S.delete` timePreds
         )
-      Nothing      -> pure (phi, timePreds)
+      Nothing -> pure (phi, timePreds)
 
 elaborateAtom :: SrcSpan
               -> AtomicFormula a
@@ -101,20 +101,20 @@ elaborateBody = fmap fst <$> cataA alg
     (phi, timePreds) <- action
     mTimePred <- determineTime timeSym timePreds span
     case mTimePred of
-      Just timePred -> pure
-        ( SBodyJump span phi (Exp timePred) time
-        , timePred `S.delete` timePreds
+      Just timePredicate -> pure
+        ( SBodyJump span phi (Exp timePredicate) time
+        , timePredicate `S.delete` timePreds
         )
-      Nothing      -> pure (phi, timePreds)
+      Nothing -> pure (phi, timePreds)
   alg (SBindF span timeSym var action) = do
     (phi, timePreds) <- action
     mTimePred <- determineTime timeSym timePreds span
     case mTimePred of
-      Just timePred -> pure
-        ( SBind span (Exp timePred) var phi
-        , timePred `S.insert` timePreds
+      Just timePredicate -> pure
+        ( SBind span (Exp timePredicate) var phi
+        , timePredicate `S.insert` timePreds
         )
-      Nothing      -> lift $
+      Nothing -> lift $
         scold (Just span) "Time predicate of the bind is ambiguous."
   alg AG.SNullOpF{..} = do
     mOp <- elaborateBodyOp _nullOpF S.empty _spanF

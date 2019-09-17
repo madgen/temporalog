@@ -22,10 +22,10 @@ type LocalTypeEnvironment  = [ (Var, TermType) ]
 
 typeCheck :: MD.Metadata -> A.Program -> Log.Logger ()
 typeCheck metadata program =
-  void $ transformM (\s -> check (atoms (s :: A.Sentence)) $> s) program
+  void $ transformM (\s -> go (atoms (s :: A.Sentence)) $> s) program
   where
-  check :: [ AtomicFormula Term ] -> Log.Logger ()
-  check = void . foldrM yakk [] . reverse
+  go :: [ AtomicFormula Term ] -> Log.Logger ()
+  go = void . foldrM yakk [] . reverse
 
   yakk :: AtomicFormula Term
        -> LocalTypeEnvironment

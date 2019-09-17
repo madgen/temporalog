@@ -137,7 +137,7 @@ eliminateTemporal metadata program = do
     newChild <- subst var timeTerm child
     goBody newChild
   -- Temporal operators
-  goBody rho@(SEX span (Exp timePredSym) phi) = do
+  goBody rho@(SEX s (Exp timePredSym) phi) = do
     -- Get an axuillary predicate and its de facto atom
     auxPredSym <- (lift . lift . lift) freshPredSym
 
@@ -162,17 +162,17 @@ eliminateTemporal metadata program = do
 
     -- Head of the auxillary clause
     let auxAtom =
-         AtomicFormula { _span = span , _predSym = auxPredSym , _terms = [] }
+         AtomicFormula { _span = s , _predSym = auxPredSym , _terms = [] }
 
-    let auxHead = SAtom span (auxAtom {_terms = deltaFV <> delta })
+    let auxHead = SAtom s (auxAtom {_terms = deltaFV <> delta })
 
     addAtomType (AG._atom auxHead)
 
-    lift $ lift $ lift $ addClause $ AG.Clause span auxHead
-      (SConj span transitionAtom phi')
+    lift $ lift $ lift $ addClause $ AG.Clause s auxHead
+      (SConj s transitionAtom phi')
 
     pure auxHead
-  goBody rho@(SEU span (Exp timePredSym) phi psi) = do
+  goBody rho@(SEU s (Exp timePredSym) phi psi) = do
     -- Get an axuillary predicate and its de facto atom
     auxPredSym <- (lift . lift . lift) freshPredSym
 
@@ -194,28 +194,28 @@ eliminateTemporal metadata program = do
     psi' <- setClock timePredSym x $ goBody psi
 
     let auxAtom =
-         AtomicFormula { _span = span , _predSym = auxPredSym , _terms = [] }
+         AtomicFormula { _span = s , _predSym = auxPredSym , _terms = [] }
 
     -- Generate auxillary clauses
-    let auxHead = SAtom span (auxAtom {_terms = deltaFV <> deltaX })
+    let auxHead = SAtom s (auxAtom {_terms = deltaFV <> deltaX })
 
     addAtomType (AG._atom auxHead)
 
     -- Base base:
-    lift $ lift $ lift $ addClause $ AG.Clause span auxHead psi'
+    lift $ lift $ lift $ addClause $ AG.Clause s auxHead psi'
 
     -- Inductive clause:
-    let auxAtomRec = SAtom span (auxAtom {_terms = deltaFV <> deltaY })
+    let auxAtomRec = SAtom s (auxAtom {_terms = deltaFV <> deltaY })
 
-    lift $ lift $ lift $ addClause $ AG.Clause span auxHead
-      (SConj span (accessibilityAtom timePredSym x y)
-                  (SConj span auxAtomRec phi'))
+    lift $ lift $ lift $ addClause $ AG.Clause s auxHead
+      (SConj s (accessibilityAtom timePredSym x y)
+               (SConj s auxAtomRec phi'))
 
     -- Compile by calling the auxillary clause
-    let auxResult = SAtom span (auxAtom {_terms = deltaFV <> delta })
+    let auxResult = SAtom s (auxAtom {_terms = deltaFV <> delta })
 
     pure auxResult
-  goBody rho@(SEG span (Exp timePredSym) phi) = do
+  goBody rho@(SEG s (Exp timePredSym) phi) = do
     aux1PredSym <- (lift . lift . lift) freshPredSym
     aux2PredSym <- (lift . lift . lift) freshPredSym
 
@@ -240,13 +240,12 @@ eliminateTemporal metadata program = do
     phi' <- setClock timePredSym y (goBody phi)
 
     let aux2Atom =
-         AtomicFormula {_span = span , _predSym = aux2PredSym , _terms = []}
+         AtomicFormula {_span = s , _predSym = aux2PredSym , _terms = []}
 
     -- Generate auxillary clauses
 
     -- AUX2: Negative path finding:
-    let aux2BaseHead = SAtom span $
-          aux2Atom {_terms = deltaFV <> deltaX <> [ y ] }
+    let aux2BaseHead = SAtom s $ aux2Atom {_terms = deltaFV <> deltaX <> [ y ] }
 
     addAtomType (AG._atom aux2BaseHead)
 
@@ -254,32 +253,32 @@ eliminateTemporal metadata program = do
     -- Find a point phi doesn't hold
     let acc2 = accessibilityAtom timePredSym x y
 
-    lift $ lift $ lift $ addClause $ AG.Clause span aux2BaseHead
-      (SConj span acc2 phi')
+    lift $ lift $ lift $ addClause $ AG.Clause s aux2BaseHead
+      (SConj s acc2 phi')
 
     -- Inductive case:
     -- Work backwards to find other points it doesn't hold
 
-    let aux2InductiveHead = SAtom span $ aux2Atom {_terms = deltaFV <> deltaX <> [ z ]}
-    let aux2InductiveRec  = SAtom span $ aux2Atom {_terms = deltaFV <> deltaY <> [ z ]}
+    let aux2InductiveHead = SAtom s $ aux2Atom {_terms = deltaFV <> deltaX <> [ z ]}
+    let aux2InductiveRec  = SAtom s $ aux2Atom {_terms = deltaFV <> deltaY <> [ z ]}
 
-    lift $ lift $ lift $ addClause $ AG.Clause span aux2InductiveHead
-      (SConj span acc2 (SConj span aux2InductiveRec phi'))
+    lift $ lift $ lift $ addClause $ AG.Clause s aux2InductiveHead
+      (SConj s acc2 (SConj s aux2InductiveRec phi'))
 
     -- AUX1: Finding negative paths to the loop
     let aux1Atom =
-         AtomicFormula { _span = span , _predSym = aux1PredSym , _terms = [] }
+         AtomicFormula { _span = s , _predSym = aux1PredSym , _terms = [] }
 
-    let aux1Head = SAtom span $ aux1Atom {_terms = deltaFV <> deltaY}
+    let aux1Head = SAtom s $ aux1Atom {_terms = deltaFV <> deltaY}
 
     addAtomType (AG._atom aux1Head)
 
     -- Base case:
     -- Find a handle on the loop using aux2
 
-    let loopyAux2Atom = SAtom span $ aux2Atom {_terms = deltaFV <> deltaY <> [ y ]}
+    let loopyAux2Atom = SAtom s $ aux2Atom {_terms = deltaFV <> deltaY <> [ y ]}
 
-    lift $ lift $ lift $ addClause $ AG.Clause span aux1Head loopyAux2Atom
+    lift $ lift $ lift $ addClause $ AG.Clause s aux1Head loopyAux2Atom
 
     -- Inductive case:
     -- Work backwards again but not for loops just for paths that lead to
@@ -287,13 +286,13 @@ eliminateTemporal metadata program = do
 
     let acc1 = accessibilityAtom timePredSym y x
 
-    let aux1Rec = SAtom span $ aux1Atom {_terms = deltaFV <> deltaX}
+    let aux1Rec = SAtom s $ aux1Atom {_terms = deltaFV <> deltaX}
 
-    lift $ lift $ lift $ addClause $ AG.Clause span aux1Head
-      (SConj span acc1 (SConj span aux1Rec phi'))
+    lift $ lift $ lift $ addClause $ AG.Clause s aux1Head
+      (SConj s acc1 (SConj s aux1Rec phi'))
 
     -- Compile by calling the auxillary clause
-    let auxResult = SAtom span (aux1Atom {_terms = deltaFV <> delta})
+    let auxResult = SAtom s (aux1Atom {_terms = deltaFV <> delta})
 
     pure auxResult
 
@@ -321,22 +320,22 @@ subst var term sub =
   case sub of
     AG.SAtom{..} -> pure
       AG.SAtom{_atom = _atom {_terms = substParams var term (_terms _atom)},..}
-    SBodyJump span child timePredSym time -> do
+    SBodyJump s child timePredSym time -> do
       let newTime = if time == TVar var then term else time
       newChild <- subst var term child
-      pure $ SBodyJump span newChild timePredSym newTime
-    SBind span timePredSym var' child
+      pure $ SBodyJump s newChild timePredSym newTime
+    SBind s timePredSym var' child
       -- No free occurrences of var in this child
-      | var == var' -> pure $ SBind span timePredSym var child
+      | var == var' -> pure $ SBind s timePredSym var child
       -- Substitution would capture, so alpha rename the Bind expression
       | TVar var'' <- term
       , var' == var'' -> do
         alphaVar <- (lift . lift) freshVar
         alphaChild <- subst var' (TVar alphaVar) child
         newChild <- subst var term alphaChild
-        pure $ SBind span timePredSym alphaVar newChild
+        pure $ SBind s timePredSym alphaVar newChild
       -- No risk of capture, continue recursing
-      | otherwise -> SBind span timePredSym var <$> subst var term child
+      | otherwise -> SBind s timePredSym var <$> subst var term child
     -- Boring cases:
     s@AG.SNullOp{} -> pure s
     AG.SUnOp{..}   -> (\c -> AG.SUnOp{_child = c,..}) <$> subst var term _child
@@ -433,32 +432,32 @@ instance HasTimePredicates (Subgoal (HOp 'Explicit) Term) where
   timePreds metadata rho =
     case rho of
       AG.SAtom{..}                     -> timePreds metadata _atom
-      SHeadJump _ phi (Exp timePred) _ ->
-        filter (/= timePred) <$> timePreds metadata phi
+      SHeadJump _ phi (Exp timePredicate) _ ->
+        filter (/= timePredicate) <$> timePreds metadata phi
 
 instance HasTimePredicates (Subgoal (BOp 'Explicit 'Temporal) Term) where
   timePreds metadata rho = case rho of
-    AG.SAtom{..}                     -> timePreds metadata _atom
-    SBodyJump _ phi (Exp timePred) _ -> filter (/= timePred)
-                                    <$> timePreds metadata phi
-    SBind _ (Exp timePred) _ phi     -> (timePred :) <$> timePreds metadata phi
-    SEX _ (Exp timePred) phi         -> (timePred :) <$> timePreds metadata phi
-    SAX _ (Exp timePred) phi         -> (timePred :) <$> timePreds metadata phi
-    SEF _ (Exp timePred) phi         -> (timePred :) <$> timePreds metadata phi
-    SAF _ (Exp timePred) phi         -> (timePred :) <$> timePreds metadata phi
-    SEG _ (Exp timePred) phi         -> (timePred :) <$> timePreds metadata phi
-    SAG _ (Exp timePred) phi         -> (timePred :) <$> timePreds metadata phi
-    SEU _ (Exp timePred) phi psi     -> (\xs ys -> timePred : xs <> ys)
-                                    <$> timePreds metadata phi
-                                    <*> timePreds metadata psi
-    SAU _ (Exp timePred) phi psi     -> (\xs ys -> timePred : xs <> ys)
-                                    <$> timePreds metadata phi
-                                    <*> timePreds metadata psi
-    AG.SNullOp{}                     -> pure []
-    AG.SUnOp{..}                     -> timePreds metadata _child
-    AG.SBinOp{..}                    -> (<>)
-                                    <$> timePreds metadata _child1
-                                    <*> timePreds metadata _child2
+    AG.SAtom{..}                          -> timePreds metadata _atom
+    SBodyJump _ phi (Exp timePredicate) _ -> filter (/= timePredicate)
+                                         <$> timePreds metadata phi
+    SBind _ (Exp timePredicate) _ phi     -> (timePredicate :) <$> timePreds metadata phi
+    SEX _ (Exp timePredicate) phi         -> (timePredicate :) <$> timePreds metadata phi
+    SAX _ (Exp timePredicate) phi         -> (timePredicate :) <$> timePreds metadata phi
+    SEF _ (Exp timePredicate) phi         -> (timePredicate :) <$> timePreds metadata phi
+    SAF _ (Exp timePredicate) phi         -> (timePredicate :) <$> timePreds metadata phi
+    SEG _ (Exp timePredicate) phi         -> (timePredicate :) <$> timePreds metadata phi
+    SAG _ (Exp timePredicate) phi         -> (timePredicate :) <$> timePreds metadata phi
+    SEU _ (Exp timePredicate) phi psi     -> (\xs ys -> timePredicate : xs <> ys)
+                                         <$> timePreds metadata phi
+                                         <*> timePreds metadata psi
+    SAU _ (Exp timePredicate) phi psi     -> (\xs ys -> timePredicate : xs <> ys)
+                                         <$> timePreds metadata phi
+                                         <*> timePreds metadata psi
+    AG.SNullOp{}                          -> pure []
+    AG.SUnOp{..}                          -> timePreds metadata _child
+    AG.SBinOp{..}                         -> (<>)
+                                         <$> timePreds metadata _child1
+                                         <*> timePreds metadata _child2
 
 instance HasTimePredicates (AtomicFormula Term) where
   timePreds metadata AtomicFormula{..} =
@@ -496,22 +495,22 @@ getVarType :: Monad m => Var -> TypeEnvMT m (Maybe TermType)
 getVarType var = M.lookup var <$> getVarTypeEnv
 
 addVarType :: Var -> TermType -> ClauseM ()
-addVarType var termType = do
+addVarType var varTermType = do
   mType <- lift $ getVarType var
   case mType of
-    Just termType'
-      | termType == termType -> pure ()
+    Just varTermType'
+      | varTermType == varTermType -> pure ()
       | otherwise -> lift . lift . lift . lift . lift $ Log.scream Nothing $
         "Variable " <> pp var <> " cannot have two types: " <>
-        pp termType <> " and " <> pp termType'
-    Nothing -> lift $ modify (first (M.insert var termType))
+        pp varTermType <> " and " <> pp varTermType'
+    Nothing -> lift $ modify (first (M.insert var varTermType))
 
 addTimeVarType :: MD.Metadata -> Var -> PredicateSymbol -> ClauseM ()
 addTimeVarType metadata var timePredSym = do
   predInfo <- lift . lift . lift . lift . lift
             $ timePredSym `MD.lookupM` metadata
   case MD.typ predInfo of
-    [ termType, _ ] -> addVarType var termType
+    [ varTermType, _ ] -> addVarType var varTermType
     _               -> lift . lift . lift . lift . lift $
       Log.scream (Just $ span var) "Time predicate does not has arity 2."
 
@@ -528,7 +527,7 @@ initTypeEnv metadata sentence = do
     predInfo <- lift . lift . lift . lift . lift
               $ _predSym `MD.lookupM` metadata
     let varsTypes = (`mapMaybe` zip _terms (MD.typ predInfo)) $ \case
-          (TVar var, termType) -> Just (var,termType)
+          (TVar var, varTermType) -> Just (var, varTermType)
           _                    -> Nothing
     traverse (uncurry addVarType) varsTypes
 

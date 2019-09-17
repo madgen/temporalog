@@ -53,13 +53,13 @@ cleanseDogru = cata alg
   where
   alg :: Algebra (Base (A.Subgoal (BOp eleb 'ATemporal) Term))
                  (A.Subgoal (BOp eleb 'ATemporal) Term)
-  alg (SNegF _ (SNeg _ s))                = s
-  alg (SConjF span SDogru{} s)            = s
-  alg (SConjF span s SDogru{})            = s
-  alg (SDisjF span s@SDogru{} _)          = s
-  alg (SDisjF span _ s@SDogru{})          = s
-  alg (SConjF span s@(SNeg _ SDogru{}) _) = s
-  alg (SConjF span _ s@(SNeg _ SDogru{})) = s
-  alg (SDisjF span (SNeg _ SDogru{}) s)   = s
-  alg (SDisjF span s (SNeg _ SDogru{}))   = s
-  alg s                                   = embed s
+  alg (SNegF _ (SNeg _ s))             = s
+  alg (SConjF _ SDogru{} s)            = s
+  alg (SConjF _ s SDogru{})            = s
+  alg (SDisjF _ s@SDogru{} _)          = s
+  alg (SDisjF _ _ s@SDogru{})          = s
+  alg (SConjF _ s@(SNeg _ SDogru{}) _) = s
+  alg (SConjF _ _ s@(SNeg _ SDogru{})) = s
+  alg (SDisjF _ (SNeg _ SDogru{}) s)   = s
+  alg (SDisjF _ s (SNeg _ SDogru{}))   = s
+  alg s                                = embed s
