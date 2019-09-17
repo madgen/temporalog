@@ -34,7 +34,8 @@ data Stage =
   | VanillaNormal
   | Exalog
   | ExalogRangeRepair
-  | ExalogModeRepair
+  | ExalogWellMode
+  | ExalogStratify
 
 stageParser :: Parser Stage
 stageParser =
@@ -49,15 +50,16 @@ stageParser =
  <|> stageFlag' Vanilla           "vanilla"      "Vanilla"
  <|> stageFlag' VanillaNormal     "normal"       "Normalise"
  <|> stageFlag' Exalog            "exalog"       "Compiled Exalog program"
- <|> stageFlag' ExalogRangeRepair "range-repair" "Repair and check range restriction"
- <|> stageFlag' ExalogModeRepair  "mode-repair"  "Repair and check moding"
+ <|> stageFlag' ExalogRangeRepair "range-repair" "Repair range restriction"
+ <|> stageFlag' ExalogWellMode    "well-mode"    "Repair moding"
+ <|> stageFlag' ExalogStratify    "stratify"     "Stratify"
 
 run :: RunOptions -> IO ()
 run RunOptions{..} = do
   bs <- BS.fromStrict . encodeUtf8 <$> readFile _file
 
   succeedOrDie (Stage.parse _file) bs $ \ast ->
-    succeedOrDie (Stage.wellModed _file >=> uncurry S.solve) bs $ display ast
+    succeedOrDie (Stage.stratified _file >=> uncurry S.solve) bs $ display ast
 
 repl :: ReplOptions -> IO ()
 repl _ = panic "REPL is not yet supported."
@@ -82,9 +84,10 @@ prettyPrint PPOptions{..} = do
     Vanilla           -> succeedOrDie (fmap snd <$> Stage.vanilla _file) bs $
       putStrLn . pp
     VanillaNormal     -> succeedOrDie (Stage.normalised _file) bs $ putStrLn . pp
-    Exalog            -> succeedOrDie (Stage.compiled        _file) bs printExalog
-    ExalogRangeRepair -> succeedOrDie (Stage.rangeRestricted _file) bs printExalog
-    ExalogModeRepair  -> succeedOrDie (Stage.wellModed       _file) bs printExalog
+    Exalog            -> succeedOrDie (Stage.compiled _file) bs printExalog
+    ExalogRangeRepair -> succeedOrDie (Stage.rangeRestrictionRepaired _file) bs printExalog
+    ExalogWellMode    -> succeedOrDie (Stage.wellModed _file) bs printExalog
+    ExalogStratify    -> succeedOrDie (Stage.stratified _file) bs printExalog
 
 printExalog :: (E.Program 'E.ABase, R.Solution 'E.ABase) -> IO ()
 printExalog (exalogProgram, initEDB) = do

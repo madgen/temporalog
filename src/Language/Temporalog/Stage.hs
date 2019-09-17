@@ -13,8 +13,9 @@ module Language.Temporalog.Stage
   , vanilla
   , normalised
   , compiled
-  , rangeRestricted
+  , rangeRestrictionRepaired
   , wellModed
+  , stratified
   ) where
 
 import Protolude
@@ -27,6 +28,7 @@ import           Language.Exalog.RangeRestriction (fixRangeRestriction)
 import qualified Language.Exalog.Relation as R
 import           Language.Exalog.Renamer (rename)
 import           Language.Exalog.WellModing (fixModing)
+import           Language.Exalog.Stratification (stratify)
 
 import qualified Language.Vanillalog.AST as VA
 import qualified Language.Vanillalog.Generic.AST as AG
@@ -103,8 +105,14 @@ normalised file = namedQueries file >=> normalise
 compiled :: Stage (E.Program 'E.ABase, R.Solution 'E.ABase)
 compiled file = normalised file >=> compile
 
-rangeRestricted :: Stage (E.Program 'E.ABase, R.Solution 'E.ABase)
-rangeRestricted file = compiled file >=> rename >=> fixRangeRestriction
+rangeRestrictionRepaired :: Stage (E.Program 'E.ABase, R.Solution 'E.ABase)
+rangeRestrictionRepaired file = compiled file >=> rename >=> fixRangeRestriction
 
 wellModed :: Stage (E.Program 'E.ABase, R.Solution 'E.ABase)
-wellModed file = rangeRestricted file >=> rename >=> fixModing
+wellModed file = rangeRestrictionRepaired file >=> rename >=> fixModing
+
+stratified :: Stage (E.Program 'E.ABase, R.Solution 'E.ABase)
+stratified file bs = do
+  (pr, sol) <- wellModed file bs
+  pr' <- stratify $ E.decorate pr
+  pure (pr', sol)
