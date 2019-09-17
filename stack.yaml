@@ -1,20 +1,9 @@
-resolver: lts-13.18
-
-packages:
-- .
-- location:
-    git: https://github.com/madgen/vanillalog.git
-    commit: 8e2b980204617040ca57a0b1c8c21703d0a038c3
-  extra-dep: true
-- location:
-    git: https://github.com/madgen/exalog.git
-    commit: 4e33f607f8c621c05199ba50fdc724742ec36aa6
-  extra-dep: true
-- location:
-    git: git@github.com:clash-lang/ghc-typelits-natnormalise
-    commit: 45080a9f50b040178e145c0e9b489c26c17a6d52
-  extra-dep: true
+resolver: nightly-2019-09-16
 
 extra-deps:
+- git: https://github.com/madgen/vanillalog.git
+  commit: 23983c0640b4127aa170603db3e9fbcc8fdf99e4
+- git: https://github.com/madgen/exalog.git
+  commit: 19720d39795bc6b107e97cc007be54a1ddb727f6
 - composition-prelude-2.0.5.0@sha256:2e18aa0baa6ba527b086261f077a10c2786594879f6c0cbcb50464b9d69b1521
 - recursion-schemes-ext-1.0.0.4@sha256:1078a8d896f3ae79141218fb9384858f454a1f74c5ff6d2fff8dba6e6be28300

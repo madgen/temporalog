@@ -54,37 +54,37 @@ stageParser =
 
 run :: RunOptions -> IO ()
 run RunOptions{..} = do
-  bs <- BS.fromStrict . encodeUtf8 <$> readFile file
+  bs <- BS.fromStrict . encodeUtf8 <$> readFile _file
 
-  succeedOrDie (Stage.parse file) bs $ \ast ->
-    succeedOrDie (Stage.wellModed file >=> uncurry S.solve) bs $ display ast
+  succeedOrDie (Stage.parse _file) bs $ \ast ->
+    succeedOrDie (Stage.wellModed _file >=> uncurry S.solve) bs $ display ast
 
 repl :: ReplOptions -> IO ()
-repl opts = panic "REPL is not yet supported."
+repl _ = panic "REPL is not yet supported."
 
 prettyPrint :: PPOptions Stage -> IO ()
 prettyPrint PPOptions{..} = do
-  bs <- BS.fromStrict . encodeUtf8 <$> readFile file
-  case stage of
-    TemporalLex       -> succeedOrDie (Stage.lex file) bs print
-    TemporalParse     -> succeedOrDie (Stage.parse file) bs $ putStrLn . pp
-    TemporalMeta      -> succeedOrDie (fmap fst <$> Stage.metadata file) bs $
+  bs <- BS.fromStrict . encodeUtf8 <$> readFile _file
+  case _stage of
+    TemporalLex       -> succeedOrDie (Stage.lex _file) bs print
+    TemporalParse     -> succeedOrDie (Stage.parse _file) bs $ putStrLn . pp
+    TemporalMeta      -> succeedOrDie (fmap fst <$> Stage.metadata _file) bs $
       putStrLn . pp
-    TemporalElaborate -> succeedOrDie (fmap snd <$> Stage.elaborated file) bs $
+    TemporalElaborate -> succeedOrDie (fmap snd <$> Stage.elaborated _file) bs $
       putStrLn . pp
-    TemporalNoDecl    -> succeedOrDie (fmap snd <$> Stage.noDeclaration file) bs $
+    TemporalNoDecl    -> succeedOrDie (fmap snd <$> Stage.noDeclaration _file) bs $
       putStrLn . pp
-    TemporalJoin      -> succeedOrDie (fmap snd <$> Stage.joinInjected file) bs $
+    TemporalJoin      -> succeedOrDie (fmap snd <$> Stage.joinInjected _file) bs $
       putStrLn . pp
-    TemporalNoTime    -> succeedOrDie (fmap snd <$> Stage.noTemporal file) bs $
+    TemporalNoTime    -> succeedOrDie (fmap snd <$> Stage.noTemporal _file) bs $
       putStrLn . pp
-    TemporalType      -> succeedOrDie (Stage.typeChecked file) bs $ void . pure
-    Vanilla           -> succeedOrDie (fmap snd <$> Stage.vanilla file) bs $
+    TemporalType      -> succeedOrDie (Stage.typeChecked _file) bs $ void . pure
+    Vanilla           -> succeedOrDie (fmap snd <$> Stage.vanilla _file) bs $
       putStrLn . pp
-    VanillaNormal     -> succeedOrDie (Stage.normalised file) bs $ putStrLn . pp
-    Exalog            -> succeedOrDie (Stage.compiled        file) bs printExalog
-    ExalogRangeRepair -> succeedOrDie (Stage.rangeRestricted file) bs printExalog
-    ExalogModeRepair  -> succeedOrDie (Stage.wellModed       file) bs printExalog
+    VanillaNormal     -> succeedOrDie (Stage.normalised _file) bs $ putStrLn . pp
+    Exalog            -> succeedOrDie (Stage.compiled        _file) bs printExalog
+    ExalogRangeRepair -> succeedOrDie (Stage.rangeRestricted _file) bs printExalog
+    ExalogModeRepair  -> succeedOrDie (Stage.wellModed       _file) bs printExalog
 
 printExalog :: (E.Program 'E.ABase, R.Solution 'E.ABase) -> IO ()
 printExalog (exalogProgram, initEDB) = do
@@ -94,8 +94,8 @@ printExalog (exalogProgram, initEDB) = do
 
 main :: IO ()
 main = do
-  command <- execParser (info (opts (ppOptions stageParser)) idm)
-  case command of
+  com <- execParser (info (opts (fromStageParser stageParser)) idm)
+  case com of
     Run runOpts   -> run  runOpts
     Repl replOpts -> repl replOpts
     PrettyPrint ppOpts -> prettyPrint ppOpts
