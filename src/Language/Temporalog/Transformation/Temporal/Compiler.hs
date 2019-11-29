@@ -14,6 +14,7 @@ import Protolude
 import           Data.List (nub)
 import qualified Data.Map.Strict as M
 
+import           Language.Exalog.Fresh
 import qualified Language.Exalog.Logger as Log
 import           Language.Exalog.SrcLoc (span, dummySpan)
 
@@ -22,7 +23,6 @@ import           Language.Vanillalog.Generic.Pretty (pp)
 
 import           Language.Temporalog.AST
 import qualified Language.Temporalog.Analysis.Metadata as MD
-import           Language.Temporalog.Transformation.Fresh
 
 eliminateTemporal :: MD.Metadata
                   -> AG.Program Void (HOp 'Explicit) (BOp 'Explicit 'Temporal)
